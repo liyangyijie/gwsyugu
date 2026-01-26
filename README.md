@@ -125,39 +125,63 @@ $$ Q_{daily} = Q_{base} + K \cdot (T_{base} - T_{avg}) $$
     *   获取过去时段的实际气温用于参数训练。
     *   获取未来14天的精细预报用于短期预测。
 
-## 部署与使用
+## 部署与使用指南 (Deployment Guide)
 
-### 本地开发
-1.  克隆项目：
-    ```bash
-    git clone <repository-url>
-    cd app
-    ```
-2.  安装依赖：
-    ```bash
-    npm install
-    # 或 yarn install, pnpm install
-    ```
-3.  初始化数据库：
-    ```bash
-    npx prisma migrate dev
-    ```
-4.  启动开发服务器：
-    ```bash
-    npm run dev
-    ```
-5.  访问 `http://localhost:3000`。
+本系统采用 SQLite 数据库，数据文件 (`prisma/dev.db`) 默认被 Git 忽略，因此在异地部署或重新下载代码后，需要执行数据库初始化操作。
 
-### 生产环境部署
-1.  构建项目：
+### 1. 环境准备
+*   **Node.js**: 需安装 Node.js 18.0 或更高版本。
+*   **Git**: 用于拉取代码 (可选)。
+
+### 2. 获取代码
+如果您是异地部署，可以通过 GitHub 拉取代码：
+```bash
+git clone <repository-url>
+cd gwsyugu
+```
+*注意：由于隐私保护，GitHub 仓库中不包含数据库文件和日志文件。*
+
+### 3. 安装依赖
+在项目根目录下执行：
+```bash
+npm install
+# 或者使用 yarn / pnpm
+# yarn install
+# pnpm install
+```
+
+### 4. 数据库初始化 (关键步骤)
+由于下载的代码中没有 `dev.db` 文件，首次运行时必须重新生成数据库结构：
+```bash
+npx prisma migrate dev
+```
+*   该命令会根据 `prisma/schema.prisma` 定义，在 `prisma/` 目录下重新生成 `dev.db` 文件。
+*   系统会自动应用所有数据库迁移记录。
+
+### 5. 启动系统
+
+#### 方式 A：开发模式 (Development)
+适用于调试和开发：
+```bash
+npm run dev
+```
+访问：`http://localhost:3000`
+
+#### 方式 B：生产模式 (Production)
+适用于正式使用，性能更优：
+1.  **构建应用**：
     ```bash
     npm run build
     ```
-2.  启动服务：
+2.  **启动服务**：
     ```bash
     npm start
     ```
-建议使用 PM2 或 Docker 进行守护进程管理。由于使用 SQLite 数据库，请确保数据库文件 (`prisma/dev.db`) 所在的目录具有持久化存储权限。
+    *建议使用 PM2 等工具进行进程守护，例如：`pm2 start npm --name "heat-system" -- start`*
+
+### 6. 数据迁移与备份
+*   **数据迁移**：如果您需要保留原有的数据，请手动复制原机器上的 `prisma/dev.db` 文件到新部署机器的 `prisma/` 目录下，覆盖新生成的空数据库。
+*   **数据导入**：如果是全新部署，您可以使用系统自带的“Excel 粘贴导入”功能，快速录入历史抄表数据。
 
 ## 目录结构
 *   `/app`: Next.js 页面路由及 API 路由
