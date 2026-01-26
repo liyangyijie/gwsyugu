@@ -29,6 +29,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+
+# database
+*.db
+*.db-journal
+*.sqlite
+prisma/*.db
+prisma/*.db-journal
 
 # env files (can opt-in for committing if needed)
 .env*

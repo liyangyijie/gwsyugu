@@ -1,36 +1,167 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 高温水用热量预估系统 (Heat Estimation & Billing System)
 
-## Getting Started
+## 项目简介
+这是一个基于 Next.js 开发的高温水用热量预估与计费管理系统。该系统旨在帮助供热管理单位通过历史抄表数据和气象数据，智能测算用户的用热基准参数（基准热量、温度系数），并基于实时天气预报预测未来的用热量及账户余额消耗情况。
 
-First, run the development server:
+## 核心功能
+*   **单位管理**：管理用热单位的基本信息、计费标准及地理位置。
+*   **抄表记录**：录入历史抄表数据（日期、读数），系统自动计算区间日均气温和日均热量。
+*   **智能参数计算**：
+    *   利用历史抄表数据和同期实际气温，通过线性回归分析计算出该单位的专属热力学参数：
+        *   **基准热量 (Base Heat)**：在基准温度（15℃）下的基础日用热量。
+        *   **温度系数 (Temp Coeff)**：气温每下降1℃增加的额外日用热量。
+*   **用热预测与预警**：
+    *   集成 Open-Meteo 天气预报 API，获取未来14天及更长期的气温预测。
+    *   结合单位专属参数，模拟未来每日的预计用热量和费用。
+    *   **余额预警**：直观展示账户余额预计耗尽日期，并在余额不足30天时发出红色预警。
+    *   **数据导出**：支持将预测结果导出为 **Excel 报表**（包含概览、未来预测明细、历史模拟数据）或 **PNG 图片**（包含完整分析图表），方便归档与汇报。
+*   **可视化分析**：提供直观的图表（Recharts），对比历史实际用热与模型拟合曲线，展示未来余额消耗趋势。
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 技术栈
+*   **框架**：[Next.js 16](https://nextjs.org/) (App Router)
+*   **语言**：TypeScript
+*   **数据库**：SQLite (通过 Prisma ORM 管理)
+*   **UI 组件库**：Ant Design (v5) + Tailwind CSS
+*   **图表库**：Recharts
+*   **导出工具**：xlsx (Excel导出), html-to-image (图片导出)
+*   **数学库**：simple-statistics (回归分析), katex (公式渲染)
+*   **工具库**：dayjs (时间处理)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 算法与模型详解 (Algorithm & Model Detail)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+本系统的核心竞争力在于其**基于真实物理规律与数据驱动**的混合预测模型。不同于简单的平均值估算，本系统通过“历史反演”与“未来模拟”两个阶段，实现高精度的热量预测。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. 核心数学模型 (Core Mathematical Model)
 
-## Learn More
+系统建立在以下热力学基本假设之上：
+**建筑物的日用热量 ($Q$) 与 室内外温差 ($\Delta T$) 成正比。**
 
-To learn more about Next.js, take a look at the following resources:
+$$ Q_{daily} = Q_{base} + K \cdot (T_{base} - T_{avg}) $$
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+其中：
+*   **$Q_{daily}$** (GJ): 预测的单日耗热量。
+*   **$T_{avg}$** (°C): 当日的室外平均气温（来自天气接口）。
+*   **$T_{base}$** (°C): **基准温度**。设定为 **15°C**。即当室外气温达到 15°C 时，视为不需要供暖的临界点。
+*   **$Q_{base}$** (GJ): **基准热量**。即在基准温度（15°C）下，维持建筑物基本运行（如管网热损耗、生活热水等）所需的最低基础热量。
+*   **$K$** (GJ/°C): **温度系数**。代表建筑物的保温性能与采暖效率。即室外气温每下降 1°C，每天需要额外消耗的热量。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+### 2. 智能参数计算流程 (Parameter Calculation Process)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+如何得到每个单位专属的 $Q_{base}$ 和 $K$？系统利用历史抄表数据进行线性回归分析。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+#### 步骤 2.1：数据预处理
+*   **输入**：一系列抄表记录 $\{R_1, R_2, ..., R_n\}$。
+*   **处理**：对于每两个相邻的抄表记录 $R_{i}$ 和 $R_{i+1}$，计算该区间的：
+    *   **区间日均热量 ($Y_i$)**：$\frac{R_{i+1}.\text{reading} - R_{i}.\text{reading}}{\text{days}}$
+    *   **区间日均气温 ($X_i$)**：通过 Open-Meteo 接口获取该时间段内每天的历史气温，并计算算术平均值。相比直接使用月平均气温，这种方法能精准捕捉该特定抄表周期的天气特征。
+
+#### 步骤 2.2：线性回归 (Linear Regression)
+*   构建数据集 $\{(X_1, Y_1), (X_2, Y_2), ...\}$。
+*   使用最小二乘法 (Least Squares Method) 拟合直线方程 $y = mx + b$。
+*   **映射关系**：
+    *   斜率 $m$ 对应 $-K$（气温越低热量越高，故斜率为负）。
+    *   截距 $b$ 对应 $Q_{base} + K \cdot T_{base}$。
+*   **解算参数**：
+    *   $K = -m$
+    *   $Q_{base} = b - K \cdot 15$
+
+---
+
+### 3. 历史数据动态模拟 (Dynamic Historical Simulation)
+
+为了在图表中展示“实际用热”曲线，系统需要将**区间总热量**还原为**每日热量**。
+*   **传统方法**：将区间总热量平均分配到每一天。这会导致曲线呈阶梯状，无法反映气温波动对用热的影响。
+*   **本系统优化算法**：**加权分配法**。
+    1.  利用步骤2计算出的 $K$ 和 $Q_{base}$，结合每一天的实际历史气温，计算出当天的**理论热需求 ($D_j$)**。
+    2.  计算该区间的**总理论需求 ($\sum D$)**。
+    3.  计算每一天的**分配权重 ($W_j = D_j / \sum D$)**。
+    4.  **每日实际模拟热量 = 区间实际总热量 $\times W_j$**。
+*   **优势**：即使抄表间隔长达一个月，系统也能还原出“天冷多用、天热少用”的真实波动曲线，极大地提高了数据的可解释性与可视化的真实感。
+
+---
+
+### 4. 未来预测与余额预警 (Prediction & Alert)
+
+#### 步骤 4.1：获取未来气象数据
+*   调用 Open-Meteo API 获取未来 14 天的逐日气温预报。
+*   对于 14 天之后的日期，采用**历史气候模拟算法**：基于所在城市的历史同期气温模型（如1月均温-5°C，3月均温5°C），叠加随机扰动因子，生成未来 120 天的模拟气温数据。
+
+#### 步骤 4.2：逐日递推
+*   **初始状态**：当前账户余额。
+*   **循环计算** (Day 1 to Day 120)：
+    1.  读取当日预测气温 $T_{pred}$。
+    2.  代入模型计算当日预计耗热：$Q_{pred} = Q_{base} + K \cdot (15 - T_{pred})$。
+    3.  计算当日预计费用：$Cost = Q_{pred} \times \text{Unit Price}$。
+    4.  更新余额：$Balance_{new} = Balance_{old} - Cost$。
+    5.  **判断**：如果 $Balance_{new} \le 0$，则标记当日为**预计欠费日期**，停止计算或继续计算欠费金额。
+
+#### 步骤 4.3：预警触发
+*   根据预计欠费日期，计算剩余可用天数。
+*   如果 **剩余天数 < 30天**，前端界面触发红色警报，并建议用户及时充值。
+
+---
+
+## 性能优化策略
+
+## 性能优化策略
+
+### 1. 天气数据缓存 (Cache-First)
+*   为了减少对外部 API (Open-Meteo) 的依赖并提高响应速度，系统实现了本地数据库缓存机制。
+*   **DailyWeather 表**：存储所有已获取的历史和未来气温数据。
+*   **逻辑**：在请求气温时，优先查询本地数据库。只有当数据库中缺失对应日期的记录时，才发起外部 API 请求，并自动将新数据存入库中。
+
+### 2. 预测结果持久化
+*   **UnitPrediction 表**：计算成功后，将完整的预测结果（包括剩余天数、预估日期、月度统计等）序列化存储到数据库。
+*   **逻辑**：用户再次访问预测页面时，直接从数据库加载上次计算的结果，无需每次都进行复杂的回归分析和数据模拟，极大提升页面加载速度。仅在用户点击“重新计算”时才触发重新运算。
+
+## 天气 API 集成
+本项目使用 [Open-Meteo API](https://open-meteo.com/) 获取高精度的历史天气和未来预报数据。
+*   **无需 API Key**：完全免费且开源。
+*   **数据源**：整合了 DWD, NOAA, ECMWF, MET Norway 等多家气象机构数据。
+*   **功能**：
+    *   根据单位经纬度（默认淄博坐标：36.81, 118.05）获取当地天气。
+    *   获取过去时段的实际气温用于参数训练。
+    *   获取未来14天的精细预报用于短期预测。
+
+## 部署与使用
+
+### 本地开发
+1.  克隆项目：
+    ```bash
+    git clone <repository-url>
+    cd app
+    ```
+2.  安装依赖：
+    ```bash
+    npm install
+    # 或 yarn install, pnpm install
+    ```
+3.  初始化数据库：
+    ```bash
+    npx prisma migrate dev
+    ```
+4.  启动开发服务器：
+    ```bash
+    npm run dev
+    ```
+5.  访问 `http://localhost:3000`。
+
+### 生产环境部署
+1.  构建项目：
+    ```bash
+    npm run build
+    ```
+2.  启动服务：
+    ```bash
+    npm start
+    ```
+建议使用 PM2 或 Docker 进行守护进程管理。由于使用 SQLite 数据库，请确保数据库文件 (`prisma/dev.db`) 所在的目录具有持久化存储权限。
+
+## 目录结构
+*   `/app`: Next.js 页面路由及 API 路由
+*   `/actions`: Server Actions (业务逻辑核心)
+*   `/components`: React UI 组件
+*   `/lib`: 工具函数及 Prisma 客户端实例
+*   `/prisma`: 数据库模型定义 (schema.prisma) 及迁移文件

@@ -1,0 +1,382 @@
+'use server'
+
+import prisma from '@/lib/prisma'
+import * as ss from 'simple-statistics'
+import { revalidatePath } from 'next/cache'
+import dayjs from 'dayjs'
+
+// const HEATING_START_DATE = '2025-11-15'; // Removed fixed date
+
+export async function calculateUnitParams(unitId: number) {
+  try {
+    const readings = await prisma.meterReading.findMany({
+      where: {
+        unitId,
+        dailyAvgTemp: { not: null },
+        heatUsage: { not: null }
+      },
+      orderBy: { readingDate: 'asc' }
+    })
+
+    if (readings.length < 3) return { success: false, error: 'Not enough data (min 3 records)' }
+
+    // 2. Get Location Settings
+    const cityConfig = await getCitySetting()
+    const cityInfo = cityConfig.data || { name: '淄博 (默认)', lat: 36.81, lon: 118.05 }
+
+    // First reading is the start, but we can't calculate interval for it.
+    // So we use it as the start point for the next reading.
+    let lastDate = dayjs(readings[0].readingDate)
+
+    // Fetch historical weather for parameter calculation
+    const start = lastDate;
+    const today = dayjs();
+    const pastDays = Math.max(0, today.diff(start, 'day') + 5);
+    const weatherData = await fetchWeather(cityInfo.lat, cityInfo.lon, 14, pastDays);
+    const tempMap = new Map<string, number>();
+    weatherData.forEach((w: any) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
+    const data: number[][] = []
+    // Start loop from second reading
+    for (let i = 1; i < readings.length; i++) {
+        const r = readings[i]
+        const currentDate = dayjs(r.readingDate)
+
+        // Skip if date is invalid or unordered (shouldn't happen with DB sort)
+        if (currentDate.isBefore(lastDate)) continue;
+
+        const days = currentDate.diff(lastDate, 'day')
+        if (days > 0) {
+            const dailyHeat = Number(r.heatUsage) / days
+
+            // Calculate average temperature for this specific interval
+            let tempSum = 0;
+            let tempCount = 0;
+            for (let j = 0; j < days; j++) {
+                const d = lastDate.add(j + 1, 'day');
+                const dateStr = d.format('YYYY-MM-DD');
+                const temp = tempMap.get(dateStr);
+
+                if (temp !== undefined) {
+                    tempSum += temp;
+                    tempCount++;
+                }
+            }
+
+            // Use calculated average temp from weather API if available (more precise than reading snapshot)
+            // Fallback to reading's dailyAvgTemp if no weather data found
+            const intervalAvgTemp = tempCount > 0 ? tempSum / tempCount : Number(r.dailyAvgTemp);
+
+            data.push([intervalAvgTemp, dailyHeat])
+        }
+        lastDate = currentDate
+    }
+
+    if (data.length < 3) return { success: false, error: 'Not enough valid interval data' }
+
+    // Linear Regression: y = mx + b
+    // y = DailyHeat, x = Temp
+    const regression = ss.linearRegression(data)
+    const line = ss.linearRegressionLine(regression)
+    const r2 = ss.rSquared(data, line)
+
+    // Requirement Formula: DailyHeat = BaseHeat + (BaseTemp - Temp) * Coeff
+    // DailyHeat = BaseHeat + BaseTemp*Coeff - Coeff*Temp
+    // Compare with y = b + mx
+    // m = -Coeff  => Coeff = -m
+    // b = BaseHeat + BaseTemp*Coeff  => BaseHeat = b - BaseTemp*Coeff
+
+    // Default BaseTemp = 15
+    const baseTemp = 15.0
+    const coeff = -regression.m
+    const baseHeat = regression.b - (baseTemp * coeff)
+
+    // Update Unit
+    await prisma.unit.update({
+      where: { id: unitId },
+      data: {
+        tempCoeff: coeff,
+        baseHeat: baseHeat,
+        baseTemp: baseTemp,
+      }
+    })
+
+    revalidatePath(`/units/${unitId}`)
+    return { success: true, data: { coeff, baseHeat, r2 } }
+
+  } catch (error) {
+    console.error(error)
+    return { success: false, error: 'Calculation failed' }
+  }
+}
+
+// Open-Meteo API for historical/forecast weather
+import { getCitySetting } from './settings'
+
+async function fetchWeather(lat?: number, lon?: number, days: number = 7, pastDays: number = 0) {
+  if (!lat || !lon) {
+      // Fetch from settings if not provided
+      const config = await getCitySetting()
+      if (config.success && config.data) {
+          lat = config.data.lat
+          lon = config.data.lon
+      } else {
+          lat = 36.81
+          lon = 118.05
+      }
+  }
+
+  // https://api.open-meteo.com/v1/forecast
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=${days}&past_days=${pastDays}`)
+    const data = await res.json()
+    if (!data.daily) throw new Error('No weather data')
+
+    // Process to simple [{date, temp}] array
+    const result = data.daily.time.map((time: string, index: number) => {
+      const max = data.daily.temperature_2m_max[index]
+      const min = data.daily.temperature_2m_min[index]
+      const avg = (max + min) / 2
+      return { date: new Date(time), temp: avg }
+    })
+    return result
+  } catch (e) {
+    console.error('Weather API Error:', e)
+    return []
+  }
+}
+
+export async function getPrediction(unitId: number, forceRefresh: boolean = false) {
+  try {
+    // 1. Get Unit Params
+    const unit = await prisma.unit.findUnique({ where: { id: unitId } })
+    if (!unit || unit.baseHeat === null || unit.tempCoeff === null) {
+        return { success: false, error: 'Unit parameters not set' }
+    }
+
+    // 1. Check Cache
+    if (!forceRefresh) {
+        const cache = await prisma.unitPrediction.findUnique({ where: { unitId } });
+        if (cache) {
+            try {
+                const cachedData = JSON.parse(cache.data);
+                // Check if balance matches roughly
+                if (Math.abs(cachedData.currentBalance - Number(unit.accountBalance)) < 0.01) {
+                    return { success: true, data: cachedData };
+                }
+            } catch (e) {
+                // Ignore cache error
+            }
+        }
+    }
+
+    // ... (rest of the logic)
+
+    // 1.5 Get Historical Readings
+    const readings = await prisma.meterReading.findMany({
+        where: {
+            unitId,
+            dailyAvgTemp: { not: null },
+            heatUsage: { not: null }
+        },
+        orderBy: { readingDate: 'asc' }
+    })
+
+    // 2. Get Location Settings
+    const cityConfig = await getCitySetting()
+    const cityInfo = cityConfig.data || { name: '淄博 (默认)', lat: 36.81, lon: 118.05 }
+
+    // 3. Real Weather Forecast + History
+    // Calculate needed past days
+    if (readings.length === 0) return { success: false, error: 'No readings found' }
+
+    const start = dayjs(readings[0].readingDate);
+    const today = dayjs();
+    const pastDays = Math.max(0, today.diff(start, 'day') + 5);
+
+    const weatherData = await fetchWeather(cityInfo.lat, cityInfo.lon, 14, pastDays);
+
+    // Map date -> temp
+    const tempMap = new Map<string, number>();
+    weatherData.forEach((w: any) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
+
+    // Generate History Points (Dense)
+    const history = [];
+    let lastDate = start;
+
+    // Start loop from second reading
+    for (let i = 1; i < readings.length; i++) {
+        const r = readings[i];
+        const currentDate = dayjs(r.readingDate);
+
+        if (currentDate.isBefore(start)) continue;
+        if (Number(r.heatUsage) <= 0) continue;
+
+        const days = currentDate.diff(lastDate, 'day');
+        if (days > 0) {
+            // Calculate heat usage distribution based on temperature
+            // Use existing coefficients or temporary ones if not yet calculated
+            const baseTemp = unit.baseTemp ? Number(unit.baseTemp) : 15.0;
+            const tempCoeff = unit.tempCoeff ? Number(unit.tempCoeff) : 0;
+            const baseHeat = unit.baseHeat ? Number(unit.baseHeat) : 0;
+
+            // First pass: Calculate theoretical heat demand for each day based on temperature
+            // Q_theory = Base + (15 - T) * K
+            const dailyDemands: number[] = [];
+            let totalDemand = 0;
+
+            for (let j = 0; j < days; j++) {
+                const d = lastDate.add(j + 1, 'day');
+                const dateStr = d.format('YYYY-MM-DD');
+                let temp = tempMap.get(dateStr);
+                if (temp === undefined) temp = Number(r.dailyAvgTemp);
+
+                // If we have valid coefficients, calculate weighted demand
+                if (unit.tempCoeff && unit.baseHeat) {
+                    let demand = baseHeat + (baseTemp - temp) * tempCoeff;
+                    if (demand < 0) demand = 0; // Heat cannot be negative
+                    // Ensure a minimum base demand to avoid division by zero if all days are warm
+                    // and to distribute some heat even on warm days if total usage > 0
+                    if (demand === 0 && Number(r.heatUsage) > 0) demand = 0.1;
+
+                    dailyDemands.push(demand);
+                    totalDemand += demand;
+                } else {
+                    // Fallback: Even distribution if no coefficients yet
+                    dailyDemands.push(1);
+                    totalDemand += 1;
+                }
+            }
+
+            // Second pass: Distribute actual total usage proportional to theoretical demand
+            const totalActualHeat = Number(r.heatUsage);
+
+            for (let j = 0; j < days; j++) {
+                const d = lastDate.add(j + 1, 'day');
+                const dateStr = d.format('YYYY-MM-DD');
+                let temp = tempMap.get(dateStr);
+                if (temp === undefined) temp = Number(r.dailyAvgTemp);
+
+                // Proportional allocation: ActualDayHeat = TotalActual * (DayTheory / TotalTheory)
+                // If totalDemand is 0 (unlikely with fallback), default to even split
+                const dailyShare = totalDemand > 0 ? dailyDemands[j] / totalDemand : (1 / days);
+                const distributedHeat = totalActualHeat * dailyShare;
+
+                history.push({
+                    date: dateStr,
+                    temp: temp,
+                    dailyHeat: distributedHeat,
+                    type: 'history'
+                });
+            }
+        }
+        lastDate = currentDate;
+    }
+
+    // 4. Forecast Logic
+    // Filter weatherData for future
+    let forecast = weatherData.filter((w: any) => dayjs(w.date).isAfter(today.subtract(1, 'day')));
+
+    // If API fails or we need more days (API usually gives 7-14 days free), extend it
+    // ... existing logic ...
+    const currentLength = forecast.length
+
+    // Extend to 120 days
+    for (let i = currentLength; i < 120; i++) {
+        const date = new Date()
+        date.setDate(new Date().getDate() + i) // Fix: relative to today
+        // Simulate temp: cold in Jan/Feb, getting warmer
+        // Simple curve
+        const month = date.getMonth() // 0-11
+        let temp = 0
+        if (month === 0) temp = -5 // Jan
+        else if (month === 1) temp = -2 // Feb
+        else if (month === 2) temp = 5 // Mar
+        else temp = 10
+
+        // Add random variation
+        temp += (Math.random() * 4 - 2)
+
+        forecast.push({ date, temp })
+    }
+
+    // 4. Iterate Balance
+    let currentBalance = Number(unit.accountBalance)
+    let remainingDays = 0
+    let estimatedDate = null
+    const predictionLog = []
+
+    // Calculate Monthly Averages for display
+    const monthlyTemps: {[key: string]: {sum: number, count: number}} = {}
+
+    for (const day of forecast) {
+        // Daily Heat = Base + (BaseT - T) * k
+        let dailyHeat = Number(unit.baseHeat) + (Number(unit.baseTemp) - day.temp) * Number(unit.tempCoeff)
+        if (dailyHeat < 0) dailyHeat = 0 // Cannot generate heat back
+
+        const dailyCost = dailyHeat * Number(unit.unitPrice)
+        currentBalance -= dailyCost
+
+        predictionLog.push({
+            date: dayjs(day.date).format('YYYY-MM-DD'),
+            temp: day.temp.toFixed(1),
+            heat: dailyHeat.toFixed(2),
+            cost: dailyCost.toFixed(2),
+            balance: currentBalance.toFixed(2)
+        })
+
+        if (currentBalance <= 0 && !estimatedDate) {
+            estimatedDate = day.date
+        }
+
+        if (currentBalance > 0) {
+            remainingDays++
+        }
+
+        // Monthly Stats
+        const monthKey = dayjs(day.date).format('YYYY-MM')
+        if (!monthlyTemps[monthKey]) monthlyTemps[monthKey] = { sum: 0, count: 0 }
+        monthlyTemps[monthKey].sum += day.temp
+        monthlyTemps[monthKey].count += 1
+    }
+
+    if (!estimatedDate && currentBalance > 0) {
+        // Balance lasts more than 120 days
+        const lastDay = new Date()
+        lastDay.setDate(new Date().getDate() + 120)
+        estimatedDate = lastDay
+    }
+
+    // Format monthly stats
+    const monthlyStats = Object.keys(monthlyTemps).map(k => ({
+        month: k,
+        avgTemp: (monthlyTemps[k].sum / monthlyTemps[k].count).toFixed(1)
+    }))
+
+    // 5. Cache the Result
+    const resultData = {
+        currentBalance: Number(unit.accountBalance),
+        remainingDays,
+        estimatedDate: estimatedDate ? (estimatedDate instanceof Date ? estimatedDate.toISOString().slice(0, 10) : new Date(estimatedDate).toISOString().slice(0, 10)) : null,
+        log: predictionLog,
+        history,
+        cityInfo,
+        monthlyStats
+    };
+
+    await prisma.unitPrediction.upsert({
+        where: { unitId },
+        update: { data: JSON.stringify(resultData) },
+        create: { unitId, data: JSON.stringify(resultData) }
+    });
+
+    return {
+        success: true,
+        data: resultData
+    }
+
+  } catch (error) {
+    console.error('Prediction Error:', error);
+    return { success: false, error: 'Prediction failed: ' + (error instanceof Error ? error.message : String(error)) }
+  }
+}
+

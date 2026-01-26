@@ -1,0 +1,194 @@
+'use server'
+
+import prisma from '@/lib/prisma'
+import { Unit } from '@prisma/client'
+import { revalidatePath } from 'next/cache'
+
+export async function importUnits(unitsData: any[]) {
+  try {
+    let successCount = 0
+    let errorCount = 0
+    let errors: string[] = []
+
+    for (const data of unitsData) {
+      try {
+        // Validate required fields
+        if (!data.name) {
+          throw new Error('Unit name is required')
+        }
+
+        // Check if unit exists
+        const existingUnit = await prisma.unit.findUnique({
+          where: { name: String(data.name) }
+        })
+
+        if (existingUnit) {
+          // Update existing unit
+          const initialBalance = data.initialBalance !== undefined ? Number(data.initialBalance) : undefined
+
+          await prisma.$transaction(async (tx: any) => {
+            // Update Unit Fields
+            await tx.unit.update({
+              where: { id: existingUnit.id },
+              data: {
+                code: data.code ? String(data.code) : undefined,
+                contactInfo: data.contactInfo ? String(data.contactInfo) : undefined,
+                area: data.area ? Number(data.area) : undefined,
+                unitPrice: data.unitPrice ? Number(data.unitPrice) : undefined,
+                baseTemp: data.baseTemp ? Number(data.baseTemp) : undefined,
+                // Only update initialBalance if provided. Note: accountBalance is usually dynamic so we don't overwrite it blindly on update unless we are resetting?
+                // Let's assume re-import might want to fix initialBalance
+                initialBalance: initialBalance
+              }
+            })
+
+            // Check if INITIAL transaction exists
+            // If data.initialBalance is provided and > 0, we ensure there is an INITIAL transaction
+            if (initialBalance !== undefined && initialBalance !== 0) {
+                 const initTx = await tx.accountTransaction.findFirst({
+                     where: {
+                         unitId: existingUnit.id,
+                         type: 'INITIAL'
+                     }
+                 })
+
+                 if (!initTx) {
+                     // Create missing INITIAL transaction (Retroactive fix)
+                     // Note: We don't change accountBalance here to avoid messing up running balance logic,
+                     // or we assume if no initial tx existed, maybe the balance wasn't set correctly?
+                     // Safe approach: Create transaction record only for reporting, but don't touch accountBalance (assuming user managed it or it's 0)
+                     // OR: If accountBalance is 0 (or close), maybe we should set it?
+                     // Let's just create the record so it appears in reports.
+                     await tx.accountTransaction.create({
+                        data: {
+                          unitId: existingUnit.id,
+                          type: 'INITIAL',
+                          amount: initialBalance,
+                          balanceAfter: initialBalance, // This might be inaccurate if there are other txs, but for INITIAL it represents the start state
+                          summary: '初始余额 (补录)',
+                          remarks: '导入修复自动创建',
+                        }
+                      })
+                 }
+            }
+          })
+        } else {
+          // Create new unit with transaction
+          await prisma.$transaction(async (tx: any) => {
+            const initialBalance = data.initialBalance ? Number(data.initialBalance) : 0
+
+            const newUnit = await tx.unit.create({
+              data: {
+                name: String(data.name),
+                code: data.code ? String(data.code) : null,
+                contactInfo: data.contactInfo ? String(data.contactInfo) : null,
+                area: data.area ? Number(data.area) : null,
+                unitPrice: data.unitPrice ? Number(data.unitPrice) : 88.0,
+                baseTemp: data.baseTemp ? Number(data.baseTemp) : 15.0,
+                initialBalance: initialBalance,
+                accountBalance: initialBalance,
+              }
+            })
+
+            // Create Initial Transaction
+            await tx.accountTransaction.create({
+              data: {
+                unitId: newUnit.id,
+                type: 'INITIAL',
+                amount: initialBalance,
+                balanceAfter: initialBalance,
+                summary: '初始余额',
+                remarks: '批量导入自动创建',
+              }
+            })
+          })
+        }
+        successCount++
+      } catch (error: any) {
+        errorCount++
+        errors.push(`Row ${data.name || 'unknown'}: ${error.message}`)
+      }
+    }
+
+    revalidatePath('/units')
+    return { success: true, successCount, errorCount, errors }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function importReadings(readingsData: any[]) {
+  try {
+    let successCount = 0
+    let errorCount = 0
+    let errors: string[] = []
+
+    for (const data of readingsData) {
+      try {
+        // Validate
+        if (!data.unitName || !data.readingDate || !data.readingValue) {
+          throw new Error('Missing required fields (unitName, readingDate, readingValue)')
+        }
+
+        // Find Unit
+        const unit = await prisma.unit.findUnique({
+          where: { name: String(data.unitName) }
+        })
+
+        if (!unit) {
+          throw new Error(`Unit '${data.unitName}' not found`)
+        }
+
+        const date = new Date(data.readingDate)
+        const readingValue = Number(data.readingValue)
+
+        // Check for existing reading on same date
+        // Note: simplified check, assuming one reading per day per unit logic if needed,
+        // but schema allows multiple. We'll strict it to one per day if we want, but for now just add.
+
+        await prisma.meterReading.create({
+          data: {
+            unitId: unit.id,
+            readingDate: date,
+            readingValue: readingValue,
+            dailyAvgTemp: data.dailyAvgTemp ? Number(data.dailyAvgTemp) : null,
+            remarks: data.remarks ? String(data.remarks) : 'Imported',
+            isBilled: false // Imported readings usually need to be processed or marked as historical
+          }
+        })
+
+        successCount++
+      } catch (error: any) {
+        errorCount++
+        errors.push(`Row ${data.unitName} - ${data.readingDate}: ${error.message}`)
+      }
+    }
+
+    return { success: true, successCount, errorCount, errors }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getAllUnitsForExport() {
+  const units = await prisma.unit.findMany({
+    orderBy: { name: 'asc' }
+  })
+  return units
+}
+
+export async function getFinancialReportForExport() {
+  // Get all transactions with unit info
+  const transactions = await prisma.accountTransaction.findMany({
+    include: {
+      unit: {
+        select: {
+          name: true,
+          code: true
+        }
+      }
+    },
+    orderBy: { date: 'desc' }
+  })
+  return transactions
+}

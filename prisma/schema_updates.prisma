@@ -1,0 +1,15 @@
+
+model DailyWeather {
+  date      String   @id // YYYY-MM-DD
+  temp      Float    // Average Temp
+  minTemp   Float?
+  maxTemp   Float?
+  updatedAt DateTime @updatedAt
+}
+
+model UnitPrediction {
+  unitId        Int      @id
+  unit          Unit     @relation(fields: [unitId], references: [id])
+  data          String   // JSON string of prediction data
+  updatedAt     DateTime @updatedAt
+}

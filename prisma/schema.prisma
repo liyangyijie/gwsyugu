@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Unit {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  code            String?
+  contactInfo     String?
+  area            Float?
+  unitPrice       Decimal  @default(88.0)
+  accountBalance  Decimal  @default(0.0)
+  initialBalance  Decimal  @default(0.0)
+  status          String   @default("NORMAL") // NORMAL, ARREARS
+
+  // Parameters
+  baseTemp        Float    @default(15.0)
+  baseHeat        Float?
+  tempCoeff       Float?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  readings        MeterReading[]
+  transactions    AccountTransaction[]
+  prediction      UnitPrediction?
+}
+
+model MeterReading {
+  id              Int      @id @default(autoincrement())
+  readingDate     DateTime
+  readingValue    Decimal
+  dailyAvgTemp    Float?
+
+  heatUsage       Decimal?
+  costAmount      Decimal?
+  isBilled        Boolean  @default(false)
+
+  remarks         String?
+
+  unitId          Int
+  unit            Unit     @relation(fields: [unitId], references: [id])
+
+  transactions    AccountTransaction[]
+}
+
+model AccountTransaction {
+  id              Int      @id @default(autoincrement())
+  date            DateTime @default(now())
+  type            String   // INITIAL, RECHARGE, DEDUCTION, ADJUSTMENT
+  amount          Decimal
+  balanceAfter    Decimal
+  summary         String
+  remarks         String?
+
+  unitId          Int
+  unit            Unit     @relation(fields: [unitId], references: [id])
+
+  relatedReadingId Int?
+  relatedReading   MeterReading? @relation(fields: [relatedReadingId], references: [id])
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+
+model DailyWeather {
+  date      String   @id // YYYY-MM-DD
+  temp      Float    // Average Temp
+  minTemp   Float?
+  maxTemp   Float?
+  updatedAt DateTime @updatedAt
+}
+
+model UnitPrediction {
+  unitId        Int      @id
+  unit          Unit     @relation(fields: [unitId], references: [id])
+  data          String   // JSON string of prediction data
+  updatedAt     DateTime @updatedAt
+}
