@@ -24,16 +24,21 @@ npm run build
 echo "📦 组装文件..."
 mkdir -p deploy_dist
 
-# 4.1 复制独立运行包 (核心逻辑 + node_modules)
-cp -r .next/standalone/* deploy_dist/
+# 4.1 复制独立运行包 (核心逻辑 + node_modules + 隐藏文件)
+cp -r .next/standalone/. deploy_dist/
 
 # 4.2 复制静态资源 (Standalone 模式不包含静态资源，必须手动复制)
-mkdir -p deploy_dist/.next
-cp -r .next/static deploy_dist/.next/static
+# 注意：.next 目录在步骤 4.1 中可能已被复制（取决于 standalone 结构），这里确保 static 存在
+mkdir -p deploy_dist/.next/static
+cp -r .next/static/* deploy_dist/.next/static/
 cp -r public deploy_dist/public
 
 # 4.3 复制 Prisma 目录 (用于数据库迁移)
 cp -r prisma deploy_dist/prisma
+# 确保 prisma.config.ts 也被复制（如果它不在 standalone 中）
+if [ -f "prisma.config.ts" ]; then
+    cp prisma.config.ts deploy_dist/
+fi
 
 # 4.4 创建启动脚本
 cat > deploy_dist/start.sh << 'EOF'
@@ -41,7 +46,10 @@ cat > deploy_dist/start.sh << 'EOF'
 export PORT=3000
 export HOSTNAME="0.0.0.0"
 
-# 创建 .env 文件以供 Prisma 使用
+# 明确设置 DATABASE_URL 环境变量，确保 Prisma 能读取
+export DATABASE_URL="file:./prisma/dev.db"
+
+# 同时也写入 .env 文件作为备份
 if [ ! -f ".env" ]; then
     echo "DATABASE_URL=\"file:./prisma/dev.db\"" > .env
 fi
