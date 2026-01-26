@@ -41,6 +41,11 @@ cat > deploy_dist/start.sh << 'EOF'
 export PORT=3000
 export HOSTNAME="0.0.0.0"
 
+# 创建 .env 文件以供 Prisma 使用
+if [ ! -f ".env" ]; then
+    echo "DATABASE_URL=\"file:./prisma/dev.db\"" > .env
+fi
+
 # 检查是否需要初始化数据库
 if [ ! -f "prisma/dev.db" ]; then
     echo "⚠️ 未检测到数据库文件，正在尝试初始化..."
