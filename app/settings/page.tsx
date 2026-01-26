@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Upload, Button, message, Card, Table, Tabs, Statistic, Alert, Input, Form, InputNumber, Divider, App } from 'antd'
-import { UploadOutlined, DownloadOutlined, FileExcelOutlined, EnvironmentOutlined, ExperimentOutlined, SaveOutlined } from '@ant-design/icons'
+import { Upload, Button, message, Card, Table, Tabs, Statistic, Alert, Input, Form, InputNumber, Divider, App, Modal } from 'antd'
+import { UploadOutlined, DownloadOutlined, FileExcelOutlined, EnvironmentOutlined, ExperimentOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons'
 import * as XLSX from 'xlsx'
 import { importUnits, importReadings, getAllUnitsForExport, getFinancialReportForExport } from '@/actions/data-management'
 import { getCitySetting, saveCitySetting, testWeather } from '@/actions/settings'
@@ -10,6 +10,12 @@ import { getCitySetting, saveCitySetting, testWeather } from '@/actions/settings
 export default function DataManagementPage() {
   const [loading, setLoading] = useState(false)
   const [importResult, setImportResult] = useState<any>(null)
+
+  // Paste Import State
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false)
+  const [pasteContent, setPasteContent] = useState('')
+  const [parsedPasteData, setParsedPasteData] = useState<any[]>([])
+  const [pasteDate, setPasteDate] = useState<any>(null)
 
   // Use message hook
   const [messageApi, contextHolder] = message.useMessage();
@@ -114,9 +120,10 @@ export default function DataManagementPage() {
       // Map Chinese headers
       const mappedData = data.map((row: any) => ({
         unitName: row['单位名称'] || row['unitName'],
-        readingDate: row['抄表日期'] || row['readingDate'],
-        // Support both old "读数" and new "热计量表总数"
-        readingValue: row['热计量表总数'] || row['读数'] || row['readingValue'],
+        // Prefer file date if available, otherwise row date
+        readingDate: row['__fileDate'] || row['抄表日期'] || row['readingDate'],
+        // Support specific format "今日表数   （吉焦）" and others
+        readingValue: row['今日表数   （吉焦）'] || row['今日表数（吉焦）'] || row['今日表数'] || row['热计量表总数'] || row['读数'] || row['readingValue'],
         dailyAvgTemp: row['日均气温'] || row['dailyAvgTemp'],
         remarks: row['备注'] || row['remarks'],
       })).filter((r: any) => r.unitName && r.readingDate)
@@ -145,7 +152,31 @@ export default function DataManagementPage() {
           const workbook = XLSX.read(data, { type: 'binary' })
           const sheetName = workbook.SheetNames[0]
           const sheet = workbook.Sheets[sheetName]
-          const json = XLSX.utils.sheet_to_json(sheet)
+
+          // Special handling for the user's custom format:
+          // Row 1 (Index 0): Date (e.g. "2026年1月25日 星期日")
+          // Row 2 (Index 1): Headers (e.g. "单位名称", "今日表数 （吉焦）")
+          // We need to parse row 2 as header.
+
+          // Read date from first cell
+          const firstCell = sheet['A1'] ? sheet['A1'].v : '';
+          let fileDate = '';
+          if (typeof firstCell === 'string') {
+             // Extract date part: "2026年1月25日"
+             const match = firstCell.match(/(\d{4}年\d{1,2}月\d{1,2}日)/);
+             if (match) fileDate = match[1].replace(/年|月/g, '-').replace(/日/g, '');
+          }
+
+          // Use range option to start from 2nd row (index 1) for headers
+          const json = XLSX.utils.sheet_to_json(sheet, { range: 1 });
+
+          // Attach file date to each row if available
+          if (fileDate) {
+              json.forEach((row: any) => {
+                  row['__fileDate'] = fileDate;
+              });
+          }
+
           resolve(json)
         } catch (error) {
           reject(error)
@@ -155,6 +186,111 @@ export default function DataManagementPage() {
       reader.readAsBinaryString(file)
     })
   }
+
+  // -- Paste Logic --
+  const handlePasteAnalyze = () => {
+      if (!pasteContent.trim()) {
+          messageApi.warning('请先粘贴内容');
+          return;
+      }
+
+      // Try to parse as tab-separated values (Excel copy usually gives TSV)
+      const rows = pasteContent.trim().split('\n');
+      if (rows.length < 2) {
+          messageApi.error('数据格式不正确，至少需要包含日期行和表头行');
+          return;
+      }
+
+      // 1. Try to find Date in the first few rows
+      let dateFound = null;
+      let headerRowIndex = -1;
+
+      for(let i=0; i<Math.min(rows.length, 5); i++) {
+          const rowText = rows[i];
+          const match = rowText.match(/(\d{4}年\d{1,2}月\d{1,2}日)/);
+          if (match) {
+              dateFound = match[1].replace(/年|月/g, '-').replace(/日/g, '');
+          }
+          // Detect header row by keywords
+          if (rowText.includes('单位名称') && (rowText.includes('表数') || rowText.includes('读数'))) {
+              headerRowIndex = i;
+          }
+      }
+
+      if (headerRowIndex === -1) {
+          messageApi.error('未找到表头（需包含“单位名称”和“表数”等列）');
+          return;
+      }
+
+      // 2. Parse Headers
+      const headers = rows[headerRowIndex].split('\t').map(h => h.trim());
+
+      // 3. Parse Data Rows
+      const data = [];
+      for(let i=headerRowIndex+1; i<rows.length; i++) {
+          const cells = rows[i].split('\t');
+          // Skip empty rows
+          if (cells.every(c => !c.trim())) continue;
+
+          const rowData: any = {};
+          headers.forEach((h, index) => {
+              if (index < cells.length) {
+                  rowData[h] = cells[index].trim();
+              }
+          });
+
+          // Map to standard format
+          const unitName = rowData['单位名称'];
+          const readingValue = rowData['今日表数   （吉焦）'] || rowData['今日表数（吉焦）'] || rowData['今日表数'] || rowData['热计量表总数'] || rowData['读数'];
+
+          if (unitName && readingValue) {
+               data.push({
+                   unitName,
+                   readingValue,
+                   readingDate: dateFound, // Will be set globally later if needed, but good to have
+                   remarks: rowData['备   注'] || rowData['备注'] || ''
+               });
+          }
+      }
+
+      setPasteDate(dateFound);
+      setParsedPasteData(data);
+  };
+
+  const handlePasteSubmit = async () => {
+      if (parsedPasteData.length === 0) return;
+
+      setLoading(true);
+      try {
+           const mappedData = parsedPasteData.map(item => ({
+               ...item,
+               readingDate: item.readingDate || pasteDate // Use found date if available
+           })).filter(item => item.readingDate); // Ensure date exists
+
+           if (mappedData.length === 0) {
+               messageApi.error('无法识别有效日期，请确保复制的内容包含如“2026年1月25日”的日期行');
+               setLoading(false);
+               return;
+           }
+
+           const result = await importReadings(mappedData);
+           setImportResult({ type: '粘贴导入', ...result });
+
+           if (result.success) {
+               messageApi.success(`成功导入 ${result.successCount} 条记录`);
+               setIsPasteModalOpen(false);
+               setPasteContent('');
+               setParsedPasteData([]);
+           } else {
+               messageApi.error('导入失败: ' + result.error);
+           }
+      } catch (e: any) {
+          messageApi.error('导入出错: ' + e.message);
+      } finally {
+          setLoading(false);
+      }
+  };
+
 
   // -- Export Logic --
   const handleExportUnits = async () => {
@@ -312,11 +448,66 @@ export default function DataManagementPage() {
                         <Upload beforeUpload={handleImportReadings} showUploadList={false} accept=".xlsx,.xls">
                         <Button type="primary" icon={<UploadOutlined />} loading={loading}>选择 Excel 文件导入</Button>
                         </Upload>
+                        <Button icon={<CopyOutlined />} onClick={() => setIsPasteModalOpen(true)}>粘贴导入</Button>
                     </div>
                     </div>
                 )
                 }
             ]} />
+
+            {/* Paste Modal */}
+            <Modal
+                title="粘贴导入抄表记录"
+                open={isPasteModalOpen}
+                onCancel={() => setIsPasteModalOpen(false)}
+                onOk={handlePasteSubmit}
+                okText="确认导入"
+                cancelText="取消"
+                width={800}
+                confirmLoading={loading}
+                okButtonProps={{ disabled: parsedPasteData.length === 0 }}
+            >
+                <div className="space-y-4">
+                    <Alert description="请直接从 Excel 中复制包括日期、表头和数据的所有内容，然后粘贴到下方文本框中。" type="info" showIcon />
+                    <Input.TextArea
+                        rows={10}
+                        placeholder="在此粘贴 Excel 内容..."
+                        value={pasteContent}
+                        onChange={(e) => {
+                            setPasteContent(e.target.value);
+                            // Reset parsed data on change
+                            setParsedPasteData([]);
+                            setPasteDate(null);
+                        }}
+                    />
+                    <div className="flex justify-end">
+                        <Button type="primary" onClick={handlePasteAnalyze} disabled={!pasteContent}>解析数据</Button>
+                    </div>
+
+                    {pasteDate && (
+                        <div className="bg-blue-50 p-2 rounded text-blue-700">
+                            识别到日期: <strong>{pasteDate}</strong>
+                        </div>
+                    )}
+
+                    {parsedPasteData.length > 0 && (
+                        <div>
+                            <div className="mb-2 font-bold">预览 (共 {parsedPasteData.length} 条记录):</div>
+                            <Table
+                                dataSource={parsedPasteData}
+                                rowKey="unitName"
+                                size="small"
+                                pagination={{ pageSize: 5 }}
+                                columns={[
+                                    { title: '单位名称', dataIndex: 'unitName' },
+                                    { title: '读数', dataIndex: 'readingValue' },
+                                    { title: '备注', dataIndex: 'remarks' }
+                                ]}
+                            />
+                        </div>
+                    )}
+                </div>
+            </Modal>
 
             {importResult && (
                 <div className="mt-4">
