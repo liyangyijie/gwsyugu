@@ -179,7 +179,36 @@ npm run dev
     ```
     *建议使用 PM2 等工具进行进程守护，例如：`pm2 start npm --name "heat-system" -- start`*
 
-### 6. 数据迁移与备份
+### 6. 低内存 VPS 部署指南 (Standalone 模式)
+对于内存较小（如 1G）的 VPS，直接在服务器上编译容易内存溢出。推荐在本地编译后上传运行。
+
+#### 1. 本地打包
+在您的开发机（Mac/Windows）上运行项目根目录下的打包脚本：
+```bash
+# 给予执行权限 (仅需一次)
+chmod +x build-for-vps.sh
+
+# 执行打包
+./build-for-vps.sh
+```
+该脚本会自动：
+*   生成适配 Linux 的数据库引擎
+*   进行独立模式编译 (Standalone)
+*   组装所有必要文件并压缩为 `deploy.tar.gz`
+
+#### 2. 上传与运行
+将生成的 `deploy.tar.gz` 上传到 VPS，然后执行：
+```bash
+# 1. 解压
+tar -xzf deploy.tar.gz
+
+# 2. 运行 (自动处理数据库初始化)
+./start.sh
+```
+*   该模式无需在 VPS 上运行 `npm install`。
+*   默认端口为 3000，可在 `start.sh` 中修改。
+
+### 7. 数据迁移与备份
 *   **数据迁移**：如果您需要保留原有的数据，请手动复制原机器上的 `prisma/dev.db` 文件到新部署机器的 `prisma/` 目录下，覆盖新生成的空数据库。
 *   **数据导入**：如果是全新部署，您可以使用系统自带的“Excel 粘贴导入”功能，快速录入历史抄表数据。
 
