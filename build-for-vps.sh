@@ -35,10 +35,22 @@ cp -r public deploy_dist/public
 
 # 4.3 复制 Prisma 目录 (用于数据库迁移)
 cp -r prisma deploy_dist/prisma
-# 确保 prisma.config.ts 也被复制（如果它不在 standalone 中）
-if [ -f "prisma.config.ts" ]; then
-    cp prisma.config.ts deploy_dist/
-fi
+
+# 生成一个简化的 prisma.config.ts，移除 dotenv 依赖
+# 因为 Standalone 模式下可能没有安装 dotenv，且我们已经在 start.sh 中通过 export 设置了环境变量
+cat > deploy_dist/prisma.config.ts << 'EOF'
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  datasource: {
+    url: process.env["DATABASE_URL"],
+  },
+});
+EOF
 
 # 4.4 创建启动脚本
 cat > deploy_dist/start.sh << 'EOF'
