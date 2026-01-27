@@ -1,0 +1,16 @@
+node_modules
+.next
+deploy_dist
+build-for-vps.sh
+.git
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev.db
+dev.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+.env*
+!*.env.example
