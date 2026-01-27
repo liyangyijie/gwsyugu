@@ -92,7 +92,8 @@ if [ ! -d "node_modules/better-sqlite3" ] || [ ! -f "node_modules/better-sqlite3
     # 仅安装 better-sqlite3 和适配器，跳过其他已存在的包
     # ⚠️ 关键修正：必须显式安装到当前 node_modules，防止 npm 破坏 .next/standalone 的依赖结构
     # 同时安装 @prisma/client 以确保版本匹配（虽然 standalone 里有，但 npm install 可能会清理未声明的包）
-    npm install better-sqlite3 @prisma/adapter-better-sqlite3 --no-save --omit=dev
+    # 补充：安装 @prisma/debug 以解决 engines postinstall 脚本的依赖缺失问题
+    npm install better-sqlite3 @prisma/adapter-better-sqlite3 @prisma/debug --no-save --omit=dev
 fi
 
 # 检查是否需要初始化数据库
