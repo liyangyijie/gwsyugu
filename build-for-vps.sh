@@ -27,6 +27,12 @@ mkdir -p deploy_dist
 # 4.1 复制独立运行包 (核心逻辑 + node_modules + 隐藏文件)
 cp -r .next/standalone/. deploy_dist/
 
+# ⚠️ 关键修复：删除本地平台的 native modules (如 better-sqlite3)
+# 这些预编译的二进制文件是 macOS 版的，不能在 Linux 上运行
+# 我们需要在 VPS 上利用 npm install 重新安装它们（仅安装生产依赖，内存占用小）
+rm -rf deploy_dist/node_modules/better-sqlite3
+rm -rf deploy_dist/node_modules/@prisma/adapter-better-sqlite3
+
 # 4.2 复制静态资源 (Standalone 模式不包含静态资源，必须手动复制)
 # 注意：.next 目录在步骤 4.1 中可能已被复制（取决于 standalone 结构），这里确保 static 存在
 mkdir -p deploy_dist/.next/static
@@ -73,6 +79,13 @@ export DATABASE_URL="file:./prisma/dev.db"
 # 同时也写入 .env 文件作为备份
 if [ ! -f ".env" ]; then
     echo "DATABASE_URL=\"file:./prisma/dev.db\"" > .env
+fi
+
+# 检查依赖并安装 native modules (修复 better-sqlite3 ELF 错误)
+if [ ! -d "node_modules/better-sqlite3" ]; then
+    echo "🔧 正在安装 Linux 平台依赖 (better-sqlite3)..."
+    # 仅安装 better-sqlite3 和适配器，跳过其他已存在的包
+    npm install better-sqlite3 @prisma/adapter-better-sqlite3 --no-save
 fi
 
 # 检查是否需要初始化数据库
