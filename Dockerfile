@@ -53,7 +53,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
 # 切换到非 root 用户
-USER nextjs
+# ⚠️ 注意：为了解决挂载 SQLite 文件的权限问题 (SQLITE_CANTOPEN)，暂时使用 root 运行
+# USER nextjs
 
 # 暴露端口
 EXPOSE 3000
@@ -61,4 +62,5 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # 启动脚本：检查数据库并启动
-CMD ["sh", "-c", "if [ ! -f prisma/dev.db ]; then echo '⚠️ Init DB...'; npx prisma migrate deploy; fi; node server.js"]
+# 显式导出环境变量，确保 Prisma migrate 能够读取到
+CMD ["sh", "-c", "export DATABASE_URL=file:./prisma/dev.db && if [ ! -f prisma/dev.db ]; then echo '⚠️ Init DB...'; npx prisma migrate deploy; fi; node server.js"]
