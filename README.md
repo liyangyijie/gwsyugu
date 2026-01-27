@@ -212,6 +212,10 @@ tar -xzf deploy.tar.gz
 *   **数据迁移**：如果您需要保留原有的数据，请手动复制原机器上的 `prisma/dev.db` 文件到新部署机器的 `prisma/` 目录下，覆盖新生成的空数据库。
 *   **数据导入**：如果是全新部署，您可以使用系统自带的“Excel 粘贴导入”功能，快速录入历史抄表数据。
 
+### 8. 安全与维护注意事项 (重要)
+*   **关于 npm audit**: 运行 `npm install` 后可能会看到关于 `lodash` 的漏洞警告。**请勿运行 `npm audit fix --force`**。这会导致 Prisma 降级到旧版本 (6.x)，从而破坏当前项目对 Prisma 7 的配置兼容性，导致无法启动。请保持 Prisma 7.3.0 版本不变。
+*   **数据备份**: 定期备份 `prisma/dev.db` 文件即可保障数据安全。
+
 ## 目录结构
 *   `/app`: Next.js 页面路由及 API 路由
 *   `/actions`: Server Actions (业务逻辑核心)
