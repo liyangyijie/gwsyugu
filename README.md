@@ -141,24 +141,27 @@ cd gwsyugu
 ```
 *注意：由于隐私保护，GitHub 仓库中不包含数据库文件和日志文件。*
 
-### 3. 安装依赖
-在项目根目录下执行：
-```bash
-npm install
-# 或者使用 yarn / pnpm
-# yarn install
-# pnpm install
-```
+### 3. 安装依赖与本地配置 (Local Development Setup)
+1.  **安装依赖**：
+    在项目根目录下执行：
+    ```bash
+    npm install
+    ```
 
-### 4. 数据库初始化 (关键步骤)
-由于下载的代码中没有 `dev.db` 文件，首次运行时必须重新生成数据库结构：
-```bash
-npx prisma migrate dev
-```
-*   该命令会根据 `prisma/schema.prisma` 定义，在 `prisma/` 目录下重新生成 `dev.db` 文件。
-*   系统会自动应用所有数据库迁移记录。
+2.  **配置环境变量**：
+    新建一个 `.env` 文件，并添加以下内容（指定本地数据库路径）：
+    ```bash
+    DATABASE_URL="file:./prisma/dev.db"
+    ```
 
-### 5. 启动系统
+3.  **数据库初始化 (关键步骤)**
+    由于下载的代码中没有 `dev.db` 文件，首次运行时必须重新生成数据库结构：
+    ```bash
+    npx prisma migrate dev
+    ```
+    *   该命令会根据 `prisma/schema.prisma` 定义，在 `prisma/` 目录下重新生成 `dev.db` 文件。
+
+### 4. 启动系统
 
 #### 方式 A：开发模式 (Development)
 适用于调试和开发：
