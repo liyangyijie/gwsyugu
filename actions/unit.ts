@@ -65,9 +65,14 @@ export async function createUnit(data: {
     })
 
     revalidatePath('/units')
+    revalidatePath('/dashboard')
+    revalidatePath('/financial')
     return { success: true, data: serializeUnit(result) }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create unit:', error)
+    if (error.code === 'P2002') {
+        return { success: false, error: '单位名称已存在，请使用其他名称' }
+    }
     return { success: false, error: 'Failed to create unit' }
   }
 }
