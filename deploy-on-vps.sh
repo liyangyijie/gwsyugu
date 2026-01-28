@@ -46,7 +46,9 @@ fi
 # 如果没有 .env，创建一个默认的
 if [ ! -f .env ]; then
     echo "⚙️ 创建 .env 文件..."
-    echo 'DATABASE_URL="file:./dev.db"' > .env
+    # ⚠️ 关键设置：容器内的 DATABASE_URL 必须是绝对路径 /app/prisma/dev.db
+    # 这样 Prisma Client 和 Migrate 才能找到正确的文件
+    echo 'DATABASE_URL="file:/app/prisma/dev.db"' > .env
 fi
 
 # 确保 prisma 目录存在 (用于挂载数据库)
@@ -65,11 +67,15 @@ fi
 # 7. 启动新容器
 echo "🚀 启动容器..."
 # -v $(pwd)/prisma:/app/prisma: 将宿主机的 prisma 目录挂载进容器，确保 dev.db 数据持久化
+# -v $(pwd)/.env:/app/.env: 挂载 .env 文件，确保容器内环境变量正确 (如 DATABASE_URL)
+# --env-file .env: 将 .env 中的变量作为环境变量传入 (双重保险)
 docker run -d \
   --name gwsyugu-app \
   --restart unless-stopped \
   -p $PORT:3000 \
   -v $(pwd)/prisma:/app/prisma \
+  -v $(pwd)/.env:/app/.env \
+  --env-file .env \
   gwsyugu:latest
 
 echo "🎉 部署成功！"

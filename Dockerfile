@@ -62,5 +62,5 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # 启动脚本：检查数据库并启动
-# 显式导出环境变量，确保 Prisma migrate 能够读取到
-CMD ["sh", "-c", "export DATABASE_URL=file:./prisma/dev.db && if [ ! -f prisma/dev.db ]; then echo '⚠️ Init DB...'; npx prisma migrate deploy; fi; node server.js"]
+# 显式导出环境变量 (使用绝对路径)，确保 Prisma migrate 能够读取到
+CMD ["sh", "-c", "export DATABASE_URL=file:/app/prisma/dev.db && if [ ! -f prisma/dev.db ]; then echo '⚠️ Init DB...'; npx prisma migrate deploy; fi; node server.js"]
