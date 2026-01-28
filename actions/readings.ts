@@ -112,6 +112,8 @@ export async function saveMeterReading(data: {
     })
 
     revalidatePath(`/units/${unitId}`)
+    revalidatePath('/dashboard')
+    revalidatePath('/financial')
     return { success: true, data: serializeReading(result) }
   } catch (error) {
     console.error('Failed to save reading:', error)
@@ -156,6 +158,8 @@ export async function deleteReading(readingId: number) {
         })
 
         revalidatePath('/units')
+        revalidatePath('/dashboard')
+        revalidatePath('/financial')
         return { success: true }
     } catch (error: any) {
         return { success: false, error: error.message }
@@ -242,6 +246,8 @@ export async function updateReading(readingId: number, data: { readingValue: num
         })
 
         revalidatePath('/units')
+        revalidatePath('/dashboard')
+        revalidatePath('/financial')
         return { success: true }
     } catch (error: any) {
         return { success: false, error: error.message }

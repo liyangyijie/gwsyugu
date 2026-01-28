@@ -47,7 +47,9 @@ export async function rechargeUnit(unitId: number, amount: number, date: Date, r
         return updatedUnit
     })
 
-    revalidatePath(`/units/${unitId}`)
+        revalidatePath(`/units/${unitId}`)
+    revalidatePath('/dashboard')
+    revalidatePath('/financial')
     return { success: true, data: serializeUnit(result) }
   } catch (error) {
     console.error(error)
@@ -83,6 +85,8 @@ export async function adjustBalance(unitId: number, type: 'ADD' | 'SUBTRACT', am
             return updatedUnit
         })
         revalidatePath(`/units/${unitId}`)
+        revalidatePath('/dashboard')
+        revalidatePath('/financial')
         return { success: true, data: serializeUnit(result) }
     } catch (error) {
         return { success: false, error: 'Adjustment failed' }
@@ -143,6 +147,7 @@ export async function deleteTransaction(transactionId: number) {
 
         revalidatePath('/financial')
         revalidatePath('/units')
+        revalidatePath('/dashboard')
         return { success: true }
     } catch (error: any) {
         return { success: false, error: error.message }
