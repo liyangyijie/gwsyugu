@@ -156,19 +156,25 @@ export default function DataManagementPage() {
           // Special handling for the user's custom format:
           // Row 1 (Index 0): Date (e.g. "2026年1月25日 星期日")
           // Row 2 (Index 1): Headers (e.g. "单位名称", "今日表数 （吉焦）")
-          // We need to parse row 2 as header.
+          // OR Standard format: Row 1 = Headers
 
-          // Read date from first cell
+          // Read first cell
           const firstCell = sheet['A1'] ? sheet['A1'].v : '';
           let fileDate = '';
+          let headerRowIndex = 0; // Default to 0 (Row 1)
+
           if (typeof firstCell === 'string') {
-             // Extract date part: "2026年1月25日"
+             // Check if it's a date
              const match = firstCell.match(/(\d{4}年\d{1,2}月\d{1,2}日)/);
-             if (match) fileDate = match[1].replace(/年|月/g, '-').replace(/日/g, '');
+             if (match) {
+                 fileDate = match[1].replace(/年|月/g, '-').replace(/日/g, '');
+                 // If Row 1 is date, assume headers are on Row 2
+                 headerRowIndex = 1;
+             }
           }
 
-          // Use range option to start from 2nd row (index 1) for headers
-          const json = XLSX.utils.sheet_to_json(sheet, { range: 1 });
+          // Use range option
+          const json = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex });
 
           // Attach file date to each row if available
           if (fileDate) {

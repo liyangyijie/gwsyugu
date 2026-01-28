@@ -111,6 +111,11 @@ export async function importUnits(unitsData: any[]) {
     }
 
     revalidatePath('/units')
+    revalidatePath('/dashboard')
+    revalidatePath('/financial')
+    revalidatePath('/units')
+    revalidatePath('/dashboard')
+    revalidatePath('/financial')
     return { success: true, successCount, errorCount, errors }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -164,6 +169,9 @@ export async function importReadings(readingsData: any[]) {
       }
     }
 
+    revalidatePath('/units')
+    revalidatePath('/dashboard')
+    revalidatePath('/financial')
     return { success: true, successCount, errorCount, errors }
   } catch (error: any) {
     return { success: false, error: error.message }
