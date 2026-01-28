@@ -83,9 +83,9 @@ export async function getUnits() {
       orderBy: { createdAt: 'desc' },
     })
     return { success: true, data: units.map(serializeUnit) }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch units:', error)
-    return { success: false, error: 'Failed to fetch units' }
+    return { success: false, error: 'Failed to fetch units: ' + error.message }
   }
 }
 

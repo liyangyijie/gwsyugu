@@ -151,8 +151,9 @@ export default function UnitList({ units }: { units: any[] }) {
             setIsCreateModalOpen(false);
             createForm.resetFields();
             router.refresh();
+            messageApi.success('单位创建成功');
         } else {
-            alert('Error: ' + res.error);
+            messageApi.error(res.error);
         }
     };
 
