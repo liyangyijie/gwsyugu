@@ -35,6 +35,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 # 禁用 Next.js 的遥测数据收集
 ENV NEXT_TELEMETRY_DISABLED=1
+# 明确设置数据库 URL，供 Prisma 使用
+ENV DATABASE_URL="file:/app/prisma/dev.db"
 
 # 创建非 root 用户提高安全性
 RUN addgroup --system --gid 1001 nodejs
