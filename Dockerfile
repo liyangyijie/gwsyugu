@@ -56,6 +56,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # 复制 Prisma 目录用于迁移 (及 dev.db 如果需要的话，但通常建议挂载)
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# 复制 Prisma 配置文件 (JS格式)，确保 npx prisma migrate deploy 可以读取
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.js ./prisma.config.js
 
 # 切换到非 root 用户
 # ⚠️ 注意：为了解决挂载 SQLite 文件的权限问题 (SQLITE_CANTOPEN)，暂时使用 root 运行
