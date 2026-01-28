@@ -10,9 +10,9 @@ PORT=3000
 echo "🚀 开始 VPS 自动化部署..."
 
 # 1. 检查并添加 Swap (解决内存不足问题)
-# 确保至少有 3GB 的 Swap，如果不足则创建/增加
+# 确保至少有 1GB 的 Swap
 SWAP_SIZE=$(free -m | grep Swap | awk '{print $2}')
-if [ "$SWAP_SIZE" -lt 3000 ]; then
+if [ "$SWAP_SIZE" -lt 1000 ]; then
     echo "⚠️ 检测到 Swap 不足 (当前: ${SWAP_SIZE}MB)，正在处理..."
 
     # 如果已经有 swapfile 但太小，先关闭并删除
@@ -22,8 +22,8 @@ if [ "$SWAP_SIZE" -lt 3000 ]; then
         rm -f /swapfile
     fi
 
-    echo "📦 创建 3GB 虚拟内存..."
-    dd if=/dev/zero of=/swapfile bs=1M count=3072
+    echo "📦 创建 1GB 虚拟内存..."
+    dd if=/dev/zero of=/swapfile bs=1M count=1024
     chmod 600 /swapfile
     mkswap /swapfile
     swapon /swapfile
@@ -33,7 +33,7 @@ if [ "$SWAP_SIZE" -lt 3000 ]; then
         echo "/swapfile none swap sw 0 0" >> /etc/fstab
     fi
 
-    echo "✅ Swap 创建完成 (3GB)。"
+    echo "✅ Swap 创建完成 (1GB)。"
 else
     echo "✅ Swap 空间充足 (当前: ${SWAP_SIZE}MB)。"
 fi
@@ -86,11 +86,11 @@ echo "🚀 启动容器..."
 docker run -d \
   --name gwsyugu-app \
   --restart unless-stopped \
-  -p $PORT:3000 \
+  -p 127.0.0.1:$PORT:3000 \
   -v $(pwd)/prisma:/app/prisma \
   -v $(pwd)/.env:/app/.env \
   --env-file .env \
   gwsyugu:latest
 
 echo "🎉 部署成功！"
-echo "访问地址: http://$(curl -s ifconfig.me):$PORT"
+echo "服务已启动在 127.0.0.1:$PORT (不直接暴露公网)"

@@ -23,7 +23,7 @@ ENV DATABASE_URL="file:./dev.db"
 RUN npx prisma generate
 
 # 优化 Node.js 内存限制
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # 构建 Next.js 项目 (Standalone)
 RUN npm run build
