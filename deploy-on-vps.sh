@@ -9,19 +9,33 @@ PORT=3000
 
 echo "🚀 开始 VPS 自动化部署..."
 
-# 1. 检查并添加 Swap (解决 1G 内存不足问题)
-# 如果 swap 小于 2GB，则创建一个 2GB 的 swap 文件
+# 1. 检查并添加 Swap (解决内存不足问题)
+# 确保至少有 3GB 的 Swap，如果不足则创建/增加
 SWAP_SIZE=$(free -m | grep Swap | awk '{print $2}')
-if [ "$SWAP_SIZE" -lt 1000 ]; then
-    echo "⚠️ 检测到 Swap 不足，正在创建 2GB 虚拟内存..."
-    dd if=/dev/zero of=/swapfile bs=1M count=2048
+if [ "$SWAP_SIZE" -lt 3000 ]; then
+    echo "⚠️ 检测到 Swap 不足 (当前: ${SWAP_SIZE}MB)，正在处理..."
+
+    # 如果已经有 swapfile 但太小，先关闭并删除
+    if [ -f /swapfile ]; then
+        echo "🔄 删除旧的 swapfile..."
+        swapoff /swapfile || true
+        rm -f /swapfile
+    fi
+
+    echo "📦 创建 3GB 虚拟内存..."
+    dd if=/dev/zero of=/swapfile bs=1M count=3072
     chmod 600 /swapfile
     mkswap /swapfile
     swapon /swapfile
-    echo "/swapfile none swap sw 0 0" >> /etc/fstab
-    echo "✅ Swap 创建完成。"
+
+    # 更新 /etc/fstab (防止重复添加)
+    if ! grep -q "/swapfile" /etc/fstab; then
+        echo "/swapfile none swap sw 0 0" >> /etc/fstab
+    fi
+
+    echo "✅ Swap 创建完成 (3GB)。"
 else
-    echo "✅ Swap 空间充足。"
+    echo "✅ Swap 空间充足 (当前: ${SWAP_SIZE}MB)。"
 fi
 
 # 2. 安装 Docker (如果未安装)

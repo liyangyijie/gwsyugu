@@ -22,6 +22,9 @@ ENV DATABASE_URL="file:./dev.db"
 # 生成 Prisma Client (Linux musl 版本)
 RUN npx prisma generate
 
+# 优化 Node.js 内存限制
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # 构建 Next.js 项目 (Standalone)
 RUN npm run build
 
@@ -63,4 +66,5 @@ ENV HOSTNAME="0.0.0.0"
 
 # 启动脚本：检查数据库并启动
 # 显式导出环境变量 (使用绝对路径)，确保 Prisma migrate 能够读取到
-CMD ["sh", "-c", "export DATABASE_URL=file:/app/prisma/dev.db && if [ ! -f prisma/dev.db ]; then echo '⚠️ Init DB...'; npx prisma migrate deploy; fi; node server.js"]
+# ⚠️ 关键逻辑修正：即使 dev.db 存在，也必须运行 migrate deploy 以确保表结构是最新的
+CMD ["sh", "-c", "export DATABASE_URL=file:/app/prisma/dev.db && echo '🚀 Running migrations...' && npx prisma migrate deploy && echo '✅ Migrations complete.' && node server.js"]
