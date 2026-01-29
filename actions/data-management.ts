@@ -128,6 +128,9 @@ export async function importReadings(readingsData: any[]) {
     let errorCount = 0
     let errors: string[] = []
 
+    // Sort readings by date ascending to ensure correct billing sequence
+    readingsData.sort((a, b) => new Date(a.readingDate).getTime() - new Date(b.readingDate).getTime())
+
     for (const data of readingsData) {
       try {
         // Validate
@@ -144,22 +147,78 @@ export async function importReadings(readingsData: any[]) {
           throw new Error(`Unit '${data.unitName}' not found`)
         }
 
-        const date = new Date(data.readingDate)
+        const readingDate = new Date(data.readingDate)
         const readingValue = Number(data.readingValue)
 
-        // Check for existing reading on same date
-        // Note: simplified check, assuming one reading per day per unit logic if needed,
-        // but schema allows multiple. We'll strict it to one per day if we want, but for now just add.
+        // Use transaction for billing logic (Same as saveMeterReading)
+        await prisma.$transaction(async (tx: any) => {
+            // 1. Find Previous Reading (closest before this date)
+            const prevReading = await tx.meterReading.findFirst({
+                where: {
+                    unitId: unit.id,
+                    readingDate: { lt: readingDate },
+                },
+                orderBy: { readingDate: 'desc' },
+            })
 
-        await prisma.meterReading.create({
-          data: {
-            unitId: unit.id,
-            readingDate: date,
-            readingValue: readingValue,
-            dailyAvgTemp: data.dailyAvgTemp ? Number(data.dailyAvgTemp) : null,
-            remarks: data.remarks ? String(data.remarks) : 'Imported',
-            isBilled: false // Imported readings usually need to be processed or marked as historical
-          }
+            let heatUsage = 0
+            let costAmount = 0
+
+            if (prevReading) {
+                heatUsage = readingValue - Number(prevReading.readingValue)
+                if (heatUsage < 0) heatUsage = 0
+                // Re-fetch unit inside transaction to get latest price/balance
+                const currentUnit = await tx.unit.findUnique({ where: { id: unit.id } })
+                costAmount = heatUsage * Number(currentUnit.unitPrice)
+            }
+
+            // 2. Create Reading
+            const reading = await tx.meterReading.create({
+                data: {
+                    unitId: unit.id,
+                    readingDate,
+                    readingValue,
+                    dailyAvgTemp: data.dailyAvgTemp ? Number(data.dailyAvgTemp) : null,
+                    heatUsage,
+                    costAmount,
+                    isBilled: false, // Will set to true if billed
+                    remarks: data.remarks ? String(data.remarks) : '批量导入',
+                },
+            })
+
+            // 3. Billing Logic
+            if (costAmount > 0) {
+                const updatedUnit = await tx.unit.update({
+                    where: { id: unit.id },
+                    data: {
+                        accountBalance: { decrement: costAmount },
+                    },
+                })
+
+                // Update Status if negative
+                if (Number(updatedUnit.accountBalance) < 0) {
+                    await tx.unit.update({ where: { id: unit.id }, data: { status: 'ARREARS' } })
+                }
+
+                // Create Transaction
+                await tx.accountTransaction.create({
+                    data: {
+                        unitId: unit.id,
+                        type: 'DEDUCTION',
+                        amount: -costAmount,
+                        balanceAfter: updatedUnit.accountBalance,
+                        summary: `${readingDate.toISOString().slice(0, 10)} 抄表扣费 (导入)`,
+                        relatedReadingId: reading.id,
+                        remarks: `用量: ${heatUsage.toFixed(2)} GJ`,
+                    },
+                })
+
+                // Update Reading Billed Status
+                await tx.meterReading.update({
+                    where: { id: reading.id },
+                    data: { isBilled: true },
+                })
+            }
         })
 
         successCount++
