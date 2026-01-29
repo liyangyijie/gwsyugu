@@ -3,7 +3,7 @@ set -e
 
 # =================配置区域=================
 REPO_URL="https://github.com/liyangyijie/gwsyugu.git"
-APP_DIR="/root/gwsyugu-docker"
+APP_DIR="/root/gwsyugu"
 PORT=3000
 # =========================================
 
@@ -81,15 +81,13 @@ fi
 # 7. 启动新容器
 echo "🚀 启动容器..."
 # -v $(pwd)/prisma:/app/prisma: 将宿主机的 prisma 目录挂载进容器，确保 dev.db 数据持久化
-# -v $(pwd)/.env:/app/.env: 挂载 .env 文件，确保容器内环境变量正确 (如 DATABASE_URL)
-# --env-file .env: 将 .env 中的变量作为环境变量传入 (双重保险)
+# -v $(pwd)/.env:/app/.env: 挂载 .env 文件
 docker run -d \
   --name gwsyugu-app \
   --restart unless-stopped \
   -p 127.0.0.1:$PORT:3000 \
   -v $(pwd)/prisma:/app/prisma \
   -v $(pwd)/.env:/app/.env \
-  --env-file .env \
   gwsyugu:latest
 
 echo "🎉 部署成功！"
