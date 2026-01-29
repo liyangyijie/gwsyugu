@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { fetchTemperatureForDate } from '@/lib/weather'
+import { updatePaymentGroupStatus } from './transactions'
 
 // Helper
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,7 +54,10 @@ export async function saveMeterReading(data: {
         if (heatUsage < 0) heatUsage = 0
 
         // Calculate Cost
-        const unit = await tx.unit.findUniqueOrThrow({ where: { id: unitId } })
+        const unit = await tx.unit.findUniqueOrThrow({
+            where: { id: unitId },
+            include: { parentUnit: true }
+        })
         costAmount = heatUsage * Number(unit.unitPrice)
       }
 
@@ -73,32 +77,29 @@ export async function saveMeterReading(data: {
 
       // 3. Billing Logic
       if (costAmount > 0) {
+        const billingUnitId = unit.parentUnitId ? unit.parentUnitId : unit.id
+
         // Deduct from Balance
         const updatedUnit = await tx.unit.update({
-          where: { id: unitId },
+          where: { id: billingUnitId },
           data: {
             accountBalance: { decrement: costAmount },
           },
         })
 
-        // Update Status if negative
-        if (Number(updatedUnit.accountBalance) < 0) {
-            await tx.unit.update({
-                where: { id: unitId },
-                data: { status: 'ARREARS' }
-            })
-        }
+        // Update Status (Cascade)
+        await updatePaymentGroupStatus(tx, billingUnitId)
 
         // Create Transaction
         await tx.accountTransaction.create({
           data: {
-            unitId,
+            unitId: billingUnitId,
             type: 'DEDUCTION',
             amount: -costAmount,
             balanceAfter: updatedUnit.accountBalance,
             summary: `${readingDate.toISOString().slice(0, 10)} 抄表扣费`,
             relatedReadingId: reading.id,
-            remarks: `用量: ${heatUsage.toFixed(2)} GJ`,
+            remarks: unit.parentUnitId ? `来源: ${unit.name} (用量: ${heatUsage.toFixed(2)} GJ)` : `用量: ${heatUsage.toFixed(2)} GJ`,
           },
         })
 
@@ -149,6 +150,7 @@ export async function deleteReading(readingId: number) {
                     where: { id: reading.unitId },
                     data: { accountBalance: { increment: Math.abs(Number(transaction.amount)) } } // Revert deduction (add back)
                 })
+                await updatePaymentGroupStatus(tx, reading.unitId)
                 await tx.accountTransaction.delete({ where: { id: transaction.id } })
             }
 
@@ -192,6 +194,7 @@ export async function updateReading(readingId: number, data: { readingValue: num
                     where: { id: reading.unitId },
                     data: { accountBalance: { increment: Math.abs(Number(oldTx.amount)) } }
                 })
+                await updatePaymentGroupStatus(tx, reading.unitId)
                 await tx.accountTransaction.delete({ where: { id: oldTx.id } })
             }
 
@@ -210,7 +213,8 @@ export async function updateReading(readingId: number, data: { readingValue: num
             if (prevReading) {
                 heatUsage = Number(data.readingValue) - Number(prevReading.readingValue)
                 if (heatUsage < 0) heatUsage = 0
-                const unit = await tx.unit.findUnique({ where: { id: reading.unitId } })
+                const unit = await tx.unit.findUnique({ where: { id: reading.unitId }, include: { parentUnit: true } })
+                if (!unit) throw new Error('Unit not found')
                 costAmount = heatUsage * Number(unit.unitPrice)
             }
 
@@ -227,20 +231,33 @@ export async function updateReading(readingId: number, data: { readingValue: num
 
             // 4. Create New Transaction
             if (costAmount > 0) {
+                // Need to re-fetch unit if not fetched above (in case heatUsage was 0 before but now >0, unlikely as we only enter if prevReading)
+                // Actually `unit` variable scope is inside `if (prevReading)`.
+                // If `prevReading` is false (first reading), heatUsage is 0, costAmount is 0.
+                // So we only care if costAmount > 0, which implies unit was fetched.
+                // But wait, `unit` is scoped.
+                // Let's refetch unit for billing if needed.
+                const unitForBilling = await tx.unit.findUnique({ where: { id: reading.unitId }, include: { parentUnit: true } })
+                if (!unitForBilling) throw new Error('Unit not found')
+
+                const billingUnitId = unitForBilling.parentUnitId ? unitForBilling.parentUnitId : unitForBilling.id
+
                 const updatedUnit = await tx.unit.update({
-                    where: { id: reading.unitId },
+                    where: { id: billingUnitId },
                     data: { accountBalance: { decrement: costAmount } }
                 })
 
+                await updatePaymentGroupStatus(tx, billingUnitId)
+
                 await tx.accountTransaction.create({
                     data: {
-                        unitId: reading.unitId,
+                        unitId: billingUnitId,
                         type: 'DEDUCTION',
                         amount: -costAmount,
                         balanceAfter: updatedUnit.accountBalance,
                         summary: `${reading.readingDate.toISOString().slice(0, 10)} 抄表扣费 (修改)`,
                         relatedReadingId: reading.id,
-                        remarks: `修正用量: ${heatUsage.toFixed(2)} GJ`
+                        remarks: unitForBilling.parentUnitId ? `来源: ${unitForBilling.name} (修正用量: ${heatUsage.toFixed(2)} GJ)` : `修正用量: ${heatUsage.toFixed(2)} GJ`
                     }
                 })
             }

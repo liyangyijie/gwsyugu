@@ -188,6 +188,15 @@ export default function PredictionTab({ unit }: { unit: any }) {
 
             {prediction ? (
                 <>
+                    {prediction.incompleteData && (
+                        <Alert
+                            message="数据完整性警告"
+                            description="部分关联单元缺乏足够历史数据（至少3次抄表），预测结果仅基于现有数据计算，可能偏向乐观（低估消耗）。"
+                            type="warning"
+                            showIcon
+                            className="mb-4 shadow-sm"
+                        />
+                    )}
                     <Alert
                         description={
                             <div>
@@ -197,6 +206,7 @@ export default function PredictionTab({ unit }: { unit: any }) {
                                     : `余额充足：预计可使用至 ${prediction.estimatedDate} (剩余 ${prediction.remainingDays} 天)`}
                                 </div>
                                 <div className="text-xs">
+                                    {prediction.isChild && <span className="mr-2 font-bold text-blue-600">共用账户 ({prediction.parentName})</span>}
                                     基于 {prediction.cityInfo?.name} (Lat: {prediction.cityInfo?.lat}, Lon: {prediction.cityInfo?.lon}) 天气预报计算
                                 </div>
                             </div>

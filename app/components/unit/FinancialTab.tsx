@@ -18,6 +18,9 @@ export default function FinancialTab({ unit, transactions }: { unit: any, transa
     const [form] = Form.useForm();
     const [messageApi, contextHolder] = message.useMessage();
 
+    const isShared = !!unit.parentUnit;
+    const effectiveBalance = isShared ? unit.parentUnit.accountBalance : unit.accountBalance;
+
     const columns = [
         { title: '日期', dataIndex: 'date', render: (d: Date) => dayjs(d).format('YYYY-MM-DD HH:mm') },
         { title: '类型', dataIndex: 'type', render: (t: string) => <Tag>{TYPE_MAP[t] || t}</Tag> },
@@ -53,10 +56,10 @@ export default function FinancialTab({ unit, transactions }: { unit: any, transa
                 <Col span={8}>
                     <Card variant="borderless" className="bg-blue-50">
                         <Statistic
-                            title="当前账户余额"
-                            value={unit.accountBalance}
+                            title={isShared ? `当前账户余额 (共用: ${unit.parentUnit.name})` : "当前账户余额"}
+                            value={effectiveBalance}
                             precision={2}
-                            styles={{ content: { color: Number(unit.accountBalance) < 0 ? '#cf1322' : '#3f8600' } }}
+                            styles={{ content: { color: Number(effectiveBalance) < 0 ? '#cf1322' : '#3f8600' } }}
                             suffix="元"
                         />
                         <Button type="primary" className="mt-4 w-full" onClick={() => setActionType('recharge')}>预付款充值</Button>
@@ -80,6 +83,7 @@ export default function FinancialTab({ unit, transactions }: { unit: any, transa
                 onOk={form.submit}
                 confirmLoading={loading}
              >
+                 {isShared && <Alert message={`该单元使用共享账户 [${unit.parentUnit.name}]，资金将充入主账户。`} type="info" showIcon className="mb-4" />}
                  <Form form={form} onFinish={handleSubmit} layout="vertical">
                      <Form.Item name="amount" label="充值金额 (元)" rules={[{ required: true }]}>
                          <InputNumber style={{ width: '100%' }} min={0.01} precision={2} />
@@ -101,6 +105,7 @@ export default function FinancialTab({ unit, transactions }: { unit: any, transa
                 onOk={form.submit}
                 confirmLoading={loading}
              >
+                 {isShared && <Alert message={`该单元使用共享账户 [${unit.parentUnit.name}]，调整将应用于主账户。`} type="warning" showIcon className="mb-4" />}
                  <Form form={form} onFinish={handleSubmit} layout="vertical">
                       <Form.Item name="adjustType" label="调整类型" initialValue="ADD">
                           <Select options={[{ label: '增加余额 (如退费)', value: 'ADD' }, { label: '扣除余额 (如修正)', value: 'SUBTRACT' }]} />

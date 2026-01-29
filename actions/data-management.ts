@@ -11,6 +11,7 @@ interface ImportUnitData {
   unitPrice?: number | string
   initialBalance?: number | string
   baseTemp?: number | string
+  paymentParent?: string
 }
 
 export async function importUnits(unitsData: ImportUnitData[]) {
@@ -19,97 +20,62 @@ export async function importUnits(unitsData: ImportUnitData[]) {
     let errorCount = 0
     const errors: string[] = []
 
+    // Pre-processing: Aggregate Balances & Map Parents
+    const balanceMap = new Map<string, number>()
+    const parentMap = new Map<string, string>()
+
     for (const data of unitsData) {
-      try {
-        // Validate required fields
-        if (!data.name) {
-          throw new Error('Unit name is required')
+        if (!data.name) continue
+
+        // Balance Aggregation
+        // If paymentParent is set, this initial balance belongs to Parent.
+        // If not, it belongs to self.
+        const targetName = data.paymentParent ? String(data.paymentParent) : String(data.name)
+        const amount = data.initialBalance ? Number(data.initialBalance) : 0
+        if (amount !== 0) {
+            balanceMap.set(targetName, (balanceMap.get(targetName) || 0) + amount)
         }
 
-        // Check if unit exists
+        // Parent Mapping
+        if (data.paymentParent) {
+            parentMap.set(String(data.name), String(data.paymentParent))
+        }
+    }
+
+    // Pass 1: Create/Update Units (Basic Info)
+    for (const data of unitsData) {
+      try {
+        if (!data.name) throw new Error('Unit name is required')
+
         const existingUnit = await prisma.unit.findUnique({
           where: { name: String(data.name) }
         })
 
         if (existingUnit) {
-          // Update existing unit
-          const initialBalance = data.initialBalance !== undefined ? Number(data.initialBalance) : undefined
-
-          await prisma.$transaction(async (tx) => {
-            // Update Unit Fields
-            await tx.unit.update({
-              where: { id: existingUnit.id },
-              data: {
-                code: data.code ? String(data.code) : undefined,
-                contactInfo: data.contactInfo ? String(data.contactInfo) : undefined,
-                area: data.area ? Number(data.area) : undefined,
-                unitPrice: data.unitPrice ? Number(data.unitPrice) : undefined,
-                baseTemp: data.baseTemp ? Number(data.baseTemp) : undefined,
-                // Only update initialBalance if provided. Note: accountBalance is usually dynamic so we don't overwrite it blindly on update unless we are resetting?
-                // Let's assume re-import might want to fix initialBalance
-                initialBalance: initialBalance
-              }
-            })
-
-            // Check if INITIAL transaction exists
-            // If data.initialBalance is provided and > 0, we ensure there is an INITIAL transaction
-            if (initialBalance !== undefined && initialBalance !== 0) {
-                 const initTx = await tx.accountTransaction.findFirst({
-                     where: {
-                         unitId: existingUnit.id,
-                         type: 'INITIAL'
-                     }
-                 })
-
-                 if (!initTx) {
-                     // Create missing INITIAL transaction (Retroactive fix)
-                     // Note: We don't change accountBalance here to avoid messing up running balance logic,
-                     // or we assume if no initial tx existed, maybe the balance wasn't set correctly?
-                     // Safe approach: Create transaction record only for reporting, but don't touch accountBalance (assuming user managed it or it's 0)
-                     // OR: If accountBalance is 0 (or close), maybe we should set it?
-                     // Let's just create the record so it appears in reports.
-                     await tx.accountTransaction.create({
-                        data: {
-                          unitId: existingUnit.id,
-                          type: 'INITIAL',
-                          amount: initialBalance,
-                          balanceAfter: initialBalance, // This might be inaccurate if there are other txs, but for INITIAL it represents the start state
-                          summary: '初始余额 (补录)',
-                          remarks: '导入修复自动创建',
-                        }
-                      })
-                 }
+          // Update existing unit (ignore balance/parent for now)
+          await prisma.unit.update({
+            where: { id: existingUnit.id },
+            data: {
+              code: data.code ? String(data.code) : undefined,
+              contactInfo: data.contactInfo ? String(data.contactInfo) : undefined,
+              area: data.area ? Number(data.area) : undefined,
+              unitPrice: data.unitPrice ? Number(data.unitPrice) : undefined,
+              baseTemp: data.baseTemp ? Number(data.baseTemp) : undefined,
             }
           })
         } else {
-          // Create new unit with transaction
-          await prisma.$transaction(async (tx) => {
-            const initialBalance = data.initialBalance ? Number(data.initialBalance) : 0
-
-            const newUnit = await tx.unit.create({
-              data: {
-                name: String(data.name),
-                code: data.code ? String(data.code) : null,
-                contactInfo: data.contactInfo ? String(data.contactInfo) : null,
-                area: data.area ? Number(data.area) : null,
-                unitPrice: data.unitPrice ? Number(data.unitPrice) : 88.0,
-                baseTemp: data.baseTemp ? Number(data.baseTemp) : 15.0,
-                initialBalance: initialBalance,
-                accountBalance: initialBalance,
-              }
-            })
-
-            // Create Initial Transaction
-            await tx.accountTransaction.create({
-              data: {
-                unitId: newUnit.id,
-                type: 'INITIAL',
-                amount: initialBalance,
-                balanceAfter: initialBalance,
-                summary: '初始余额',
-                remarks: '批量导入自动创建',
-              }
-            })
+          // Create new unit (Balance = 0 initially)
+          await prisma.unit.create({
+            data: {
+              name: String(data.name),
+              code: data.code ? String(data.code) : null,
+              contactInfo: data.contactInfo ? String(data.contactInfo) : null,
+              area: data.area ? Number(data.area) : null,
+              unitPrice: data.unitPrice ? Number(data.unitPrice) : 88.0,
+              baseTemp: data.baseTemp ? Number(data.baseTemp) : 15.0,
+              initialBalance: 0,
+              accountBalance: 0,
+            }
           })
         }
         successCount++
@@ -117,6 +83,80 @@ export async function importUnits(unitsData: ImportUnitData[]) {
         errorCount++
         errors.push(`Row ${data.name || 'unknown'}: ${error instanceof Error ? error.message : String(error)}`)
       }
+    }
+
+    // Pass 2: Link Parents
+    for (const [childName, parentName] of parentMap) {
+        try {
+            // Check Hierarchy Depth: Parent cannot be a child of another unit
+            const parent = await prisma.unit.findUnique({
+                where: { name: parentName },
+                include: { parentUnit: true }
+            })
+
+            if (parent) {
+                if (parent.parentUnitId) {
+                    errors.push(`Hierarchy Error: Unit '${parentName}' is already a child of '${parent.parentUnit?.name}'. Max hierarchy depth is 1 (Parent->Child).`)
+                    continue
+                }
+
+                // Check if Parent is also a Child in the current import batch
+                if (parentMap.has(parentName)) {
+                     errors.push(`Hierarchy Error: Unit '${parentName}' is being set as a child of '${parentMap.get(parentName)}' in this batch. Max hierarchy depth is 1.`)
+                     continue
+                }
+
+                await prisma.unit.update({
+                    where: { name: childName },
+                    data: { parentUnitId: parent.id }
+                })
+            } else {
+                errors.push(`Linking Error: Parent unit '${parentName}' not found for child '${childName}'`)
+            }
+        } catch (e) {
+            errors.push(`Linking Error '${childName}': ${e}`)
+        }
+    }
+
+    // Pass 3: Set Initial Balances (Aggregated)
+    for (const [unitName, amount] of balanceMap) {
+        try {
+            const unit = await prisma.unit.findUnique({ where: { name: unitName } })
+            if (unit) {
+                await prisma.$transaction(async (tx) => {
+                    // Check if INITIAL transaction exists
+                    const initTx = await tx.accountTransaction.findFirst({
+                        where: { unitId: unit.id, type: 'INITIAL' }
+                    })
+
+                    if (!initTx) {
+                        // Create INITIAL transaction and set balance
+                        // Note: We add to existing balance because we initialized to 0 in create,
+                        // or kept existing in update. Ideally for initial import, it's 0.
+                        await tx.unit.update({
+                            where: { id: unit.id },
+                            data: {
+                                accountBalance: { increment: amount },
+                                initialBalance: amount
+                            }
+                        })
+
+                        await tx.accountTransaction.create({
+                            data: {
+                                unitId: unit.id,
+                                type: 'INITIAL',
+                                amount: amount,
+                                balanceAfter: Number(unit.accountBalance) + amount, // approx
+                                summary: '初始余额 (批量归集)',
+                                remarks: '导入自动创建'
+                            }
+                        })
+                    }
+                })
+            }
+        } catch (e) {
+            errors.push(`Balance Error '${unitName}': ${e}`)
+        }
     }
 
     revalidatePath('/units')

@@ -138,9 +138,108 @@ import { getCitySetting } from './settings'
 export async function getPrediction(unitId: number, forceRefresh: boolean = false) {
   try {
     // 1. Get Unit Params
-    const unit = await prisma.unit.findUnique({ where: { id: unitId } })
-    if (!unit || unit.baseHeat === null || unit.tempCoeff === null) {
-        return { success: false, error: 'Unit parameters not set' }
+    const unit = await prisma.unit.findUnique({
+        where: { id: unitId },
+        include: { childUnits: true, parentUnit: true }
+    })
+
+    if (!unit) return { success: false, error: 'Unit not found' }
+
+    // Case A: Child Unit -> Delegate to Parent for Forecast, but keep Self History
+    if (unit.parentUnitId) {
+        const parentPred = await getPrediction(unit.parentUnitId, forceRefresh)
+
+        // Fetch Self History
+        const selfHistory = []
+        try {
+             // 1.5 Get Historical Readings (Self)
+            const readings = await prisma.meterReading.findMany({
+                where: {
+                    unitId,
+                    dailyAvgTemp: { not: null },
+                    heatUsage: { not: null }
+                },
+                orderBy: { readingDate: 'asc' }
+            })
+
+            // Re-use history generation logic (simplified/extracted ideally, but inline for now)
+            if (readings.length > 0) {
+                 const cityConfig = await getCitySetting()
+                 const cityInfo = cityConfig.data || { name: '淄博 (默认)', lat: 36.81, lon: 118.05 }
+
+                 // Fetch past weather for history context
+                 const start = dayjs(readings[0].readingDate)
+                 const today = dayjs()
+                 const pastDays = Math.max(0, today.diff(start, 'day') + 5)
+                 const weatherData = await fetchWeather(cityInfo.lat, cityInfo.lon, 14, pastDays)
+                 const tempMap = new Map<string, number>()
+                 weatherData.forEach((w) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp))
+
+                 let lastDate = start
+                 for (let i = 1; i < readings.length; i++) {
+                    const r = readings[i]
+                    const currentDate = dayjs(r.readingDate)
+                    if (currentDate.isBefore(start)) continue
+                    if (Number(r.heatUsage) <= 0) continue
+
+                    const days = currentDate.diff(lastDate, 'day')
+                    if (days > 0) {
+                        const totalActualHeat = Number(r.heatUsage)
+                        const avgDaily = totalActualHeat / days
+                        for (let j = 0; j < days; j++) {
+                             const d = lastDate.add(j + 1, 'day')
+                             const dateStr = d.format('YYYY-MM-DD')
+                             let temp = tempMap.get(dateStr)
+                             if (temp === undefined) temp = Number(r.dailyAvgTemp)
+
+                             selfHistory.push({
+                                date: dateStr,
+                                temp: temp,
+                                dailyHeat: avgDaily, // Simplified strict average for display robustness
+                                type: 'history'
+                             })
+                        }
+                    }
+                    lastDate = currentDate
+                 }
+            }
+        } catch (e) {
+            console.error('Child history fetch failed', e)
+        }
+
+        if (parentPred.success) {
+            return {
+                ...parentPred,
+                data: {
+                    ...parentPred.data,
+                    history: selfHistory.length > 0 ? selfHistory : parentPred.data.history, // Prefer self history
+                    isChild: true,
+                    parentName: unit.parentUnit?.name,
+                    unitName: unit.name
+                }
+            }
+        }
+        return parentPred
+    }
+
+    // Case B: Parent or Standalone
+    // Aggregate Params
+    let totalBaseHeat = unit.baseHeat || 0
+    let totalTempCoeff = unit.tempCoeff || 0
+    let hasParams = (unit.baseHeat !== null && unit.tempCoeff !== null)
+    let incompleteData = false
+
+    if (unit.childUnits.length > 0) {
+        for (const child of unit.childUnits) {
+            totalBaseHeat += child.baseHeat || 0
+            totalTempCoeff += child.tempCoeff || 0
+            if (child.baseHeat !== null) hasParams = true // At least one unit has params
+            else incompleteData = true
+        }
+    }
+
+    if (!hasParams) {
+        return { success: false, error: 'Unit parameters not set (please calculate params for self or children)' }
     }
 
     // 1. Check Cache
@@ -161,7 +260,7 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
 
     // ... (rest of the logic)
 
-    // 1.5 Get Historical Readings
+    // 1.5 Get Historical Readings (Self Only for History Chart - Limitation accepted)
     const readings = await prisma.meterReading.findMany({
         where: {
             unitId,
@@ -177,9 +276,14 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
 
     // 3. Real Weather Forecast + History
     // Calculate needed past days
-    if (readings.length === 0) return { success: false, error: 'No readings found' }
+    let start = dayjs();
+    if (readings.length > 0) {
+        start = dayjs(readings[0].readingDate);
+    } else {
+        // If no readings (e.g. Pure Parent wallet), start from today
+        start = dayjs().subtract(1, 'day');
+    }
 
-    const start = dayjs(readings[0].readingDate);
     const today = dayjs();
     const pastDays = Math.max(0, today.diff(start, 'day') + 5);
 
@@ -190,8 +294,42 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
     weatherData.forEach((w) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
 
     // Generate History Points (Dense)
-    const history = [];
+    const history: any[] = [];
     let lastDate = start;
+
+    // Only generate history if we have readings
+    if (readings.length > 0) {
+        // Start loop from second reading
+        for (let i = 1; i < readings.length; i++) {
+            // ... (existing history logic)
+            // Copying existing logic manually is risky if I can't see it all.
+            // I'll use the original code structure but replace the 'unit.baseHeat' access with local variables.
+            // But wait, history logic uses `unit.baseHeat` for theoretical distribution?
+            // Yes: `let demand = baseHeat + (baseTemp - temp) * tempCoeff;`
+            // For History (Self), we should use SELF params?
+            // Yes, history chart compares Actual Self Usage vs Theoretical Self Usage.
+            // So use `unit.baseHeat` (Self) not Total.
+            // If Self has no params (Pure Parent), history chart might be empty or invalid.
+            // That's acceptable.
+
+            // I'll keep history logic using `unit.baseHeat` / `unit.tempCoeff` (Self).
+            // But I need to preserve the code block I am replacing.
+
+            // The Edit tool replaces a block. I need to be careful.
+            // My previous Read showed:
+            // Lines 140-144: Param check.
+            // Lines 147-160: Cache check.
+            // Lines 165-172: Get Readings.
+            // Lines 175-176: Location.
+            // Lines 180: `if (readings.length === 0)` -> Return error.
+            // I should change this: If readings.length === 0, we can still do Forecast (if children exist).
+
+            // So I need to rewrite from line 139 to end of function mostly.
+
+            // ...
+        }
+    }
+
 
     // Start loop from second reading
     for (let i = 1; i < readings.length; i++) {
@@ -299,18 +437,36 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
     const monthlyTemps: {[key: string]: {sum: number, count: number}} = {}
 
     for (const day of forecast) {
-        // Daily Heat = Base + (BaseT - T) * k
-        let dailyHeat = Number(unit.baseHeat) + (Number(unit.baseTemp) - day.temp) * Number(unit.tempCoeff)
-        if (dailyHeat < 0) dailyHeat = 0 // Cannot generate heat back
+        let totalDailyCost = 0
+        let totalDailyHeat = 0
 
-        const dailyCost = dailyHeat * Number(unit.unitPrice)
-        currentBalance -= dailyCost
+        // 1. Calculate Self Load & Cost
+        if (unit.baseHeat !== null && unit.tempCoeff !== null) {
+            let selfHeat = Number(unit.baseHeat) + (Number(unit.baseTemp) - day.temp) * Number(unit.tempCoeff)
+            if (selfHeat < 0) selfHeat = 0
+            totalDailyHeat += selfHeat
+            totalDailyCost += selfHeat * Number(unit.unitPrice)
+        }
+
+        // 2. Calculate Children Load & Cost
+        if (unit.childUnits && unit.childUnits.length > 0) {
+            for (const child of unit.childUnits) {
+                if (child.baseHeat !== null && child.tempCoeff !== null) {
+                    let childHeat = Number(child.baseHeat) + (Number(child.baseTemp) - day.temp) * Number(child.tempCoeff)
+                    if (childHeat < 0) childHeat = 0
+                    totalDailyHeat += childHeat
+                    totalDailyCost += childHeat * Number(child.unitPrice)
+                }
+            }
+        }
+
+        currentBalance -= totalDailyCost
 
         predictionLog.push({
             date: dayjs(day.date).format('YYYY-MM-DD'),
             temp: day.temp.toFixed(1),
-            heat: dailyHeat.toFixed(2),
-            cost: dailyCost.toFixed(2),
+            heat: totalDailyHeat.toFixed(2),
+            cost: totalDailyCost.toFixed(2),
             balance: currentBalance.toFixed(2)
         })
 
@@ -346,6 +502,7 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
     const resultData = {
         currentBalance: Number(unit.accountBalance),
         remainingDays,
+        incompleteData,
         estimatedDate: estimatedDate ? (estimatedDate instanceof Date ? estimatedDate.toISOString().slice(0, 10) : new Date(estimatedDate).toISOString().slice(0, 10)) : null,
         log: predictionLog,
         history,

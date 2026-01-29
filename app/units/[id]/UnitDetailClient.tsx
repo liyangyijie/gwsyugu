@@ -107,11 +107,11 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Statistic
                         title="当前余额"
-                        value={Number(unit.accountBalance).toFixed(2)}
+                        value={Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance).toFixed(2)}
                         prefix={<WalletOutlined />}
-                        suffix="元"
+                        suffix={unit.parentUnit ? <span className="text-xs text-gray-500 ml-2">(共用: {unit.parentUnit.name})</span> : "元"}
                         // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { color: Number(unit.accountBalance) < 0 ? '#cf1322' : '#3f8600' } }}
+                        styles={{ content: { color: Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance) < 0 ? '#cf1322' : '#3f8600' } }}
                     />
                     <Statistic
                         title="供暖时长"

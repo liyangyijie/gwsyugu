@@ -19,8 +19,45 @@ const serializeUnit = (u: any) => ({
   // Add other decimal fields if necessary
 })
 
+// Helper to update status for a payment group (Cascade Update)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function updatePaymentGroupStatus(tx: any, unitId: number) {
+    const unit = await tx.unit.findUnique({ where: { id: unitId } })
+    if (!unit) return
+
+    // Find Root (Billing Unit)
+    const billingUnitId = unit.parentUnitId ? unit.parentUnitId : unit.id
+
+    // We need the balance of the billing unit
+    const billingUnit = unit.parentUnitId
+        ? await tx.unit.findUnique({ where: { id: billingUnitId } })
+        : unit
+
+    if (!billingUnit) return
+
+    const newStatus = Number(billingUnit.accountBalance) < 0 ? 'ARREARS' : 'NORMAL'
+
+    // Update Root
+    await tx.unit.update({
+        where: { id: billingUnitId },
+        data: { status: newStatus }
+    })
+
+    // Update all children
+    await tx.unit.updateMany({
+        where: { parentUnitId: billingUnitId },
+        data: { status: newStatus }
+    })
+}
+
 export async function rechargeUnit(unitId: number, amount: number, date: Date, remarks?: string) {
   try {
+    // Check Shared Account
+    const targetUnit = await prisma.unit.findUnique({ where: { id: unitId } })
+    if (targetUnit?.parentUnitId) {
+        return rechargeUnit(targetUnit.parentUnitId, amount, date, `代充值: ${targetUnit.name} - ${remarks || ''}`)
+    }
+
     const result = await prisma.$transaction(async (tx) => {
         // Update Balance
         const updatedUnit = await tx.unit.update({
@@ -28,10 +65,8 @@ export async function rechargeUnit(unitId: number, amount: number, date: Date, r
             data: { accountBalance: { increment: amount } },
         })
 
-        // Check Status (Remove ARREARS if positive)
-        if (Number(updatedUnit.accountBalance) >= 0) {
-            await tx.unit.update({ where: { id: unitId }, data: { status: 'NORMAL' } })
-        }
+        // Check Status (Cascade)
+        await updatePaymentGroupStatus(tx, unitId)
 
         // Create Transaction
         await tx.accountTransaction.create({
@@ -63,15 +98,19 @@ export async function adjustBalance(unitId: number, type: 'ADD' | 'SUBTRACT', am
     const adjustmentAmount = type === 'ADD' ? amount : -amount
 
     try {
+        const targetUnit = await prisma.unit.findUnique({ where: { id: unitId } })
+        if (targetUnit?.parentUnitId) {
+            return adjustBalance(targetUnit.parentUnitId, type, amount, date, `代调整: ${targetUnit.name} - ${reason}`)
+        }
+
         const result = await prisma.$transaction(async (tx) => {
             const updatedUnit = await tx.unit.update({
                 where: { id: unitId },
                 data: { accountBalance: { increment: adjustmentAmount } },
             })
 
-            // Update Status check
-            const newStatus = Number(updatedUnit.accountBalance) < 0 ? 'ARREARS' : 'NORMAL'
-            await tx.unit.update({ where: { id: unitId }, data: { status: newStatus } })
+            // Update Status check (Cascade)
+            await updatePaymentGroupStatus(tx, unitId)
 
             await tx.accountTransaction.create({
                 data: {
@@ -128,6 +167,9 @@ export async function deleteTransaction(transactionId: number) {
                 where: { id: transaction.unitId },
                 data: { accountBalance: { decrement: transaction.amount } }
             })
+
+            // Update Status check (Cascade)
+            await updatePaymentGroupStatus(tx, transaction.unitId)
 
             // If it was a Reading Deduction, we might need to reset the reading status?
             // "relatedReadingId"

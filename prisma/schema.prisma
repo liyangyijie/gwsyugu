@@ -18,6 +18,11 @@ model Unit {
   initialBalance  Decimal  @default(0.0)
   status          String   @default("NORMAL") // NORMAL, ARREARS
 
+  // Parent/Child Relation for Shared Billing
+  parentUnitId    Int?
+  parentUnit      Unit?    @relation("PaymentGroup", fields: [parentUnitId], references: [id])
+  childUnits      Unit[]   @relation("PaymentGroup")
+
   // Parameters
   baseTemp        Float    @default(15.0)
   baseHeat        Float?
