@@ -59,6 +59,12 @@ This deployment introduces a robust system for handling **Shared Capital Account
 2. Enter readings for Unit C (Child).
 3. Check Prediction tab. It should show estimated days based on Unit D's balance and Unit C's consumption.
 
+### Scenario 4: Dashboard Warning Verification
+1. Ensure Unit D (Parent) has sufficient balance.
+2. Ensure Unit C (Child) is linked to D and has 0 balance.
+3. Go to Dashboard. Unit C should **NOT** appear in the "Prediction Warning" list (because it shares D's funds).
+4. If it appears (due to stale data), click "One Click Calculate All". It should disappear.
+
 ## 5. Deployment Steps
 1. Pull latest code.
 2. Run `npm install` (if dependencies changed, though none did here).
