@@ -29,9 +29,9 @@ export async function saveCitySetting(lat: number, lon: number, cityName: string
 
     revalidatePath('/settings')
     return { success: true }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Save settings error:', error)
-    return { success: false, error: 'Failed to save settings: ' + error.message }
+    return { success: false, error: 'Failed to save settings: ' + (error instanceof Error ? error.message : String(error)) }
   }
 }
 
@@ -46,7 +46,7 @@ export async function getCitySetting() {
     }
     // Default to Zibo
     return { success: true, data: { lat: 36.81, lon: 118.05, name: '淄博 (默认)' } }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch settings' }
   }
 }
@@ -59,7 +59,7 @@ export async function testWeather(lat: number, lon: number) {
       return { success: true, temp }
     }
     return { success: false, error: 'API returned no data' }
-  } catch (e: any) {
-    return { success: false, error: e.message }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) }
   }
 }

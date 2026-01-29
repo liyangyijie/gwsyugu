@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { fetchTemperatureForDate } from '@/lib/weather'
 
 // Helper
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const serializeReading = (r: any) => ({
   ...r,
   readingValue: Number(r.readingValue),
@@ -31,7 +32,7 @@ export async function saveMeterReading(data: {
       }
     }
 
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Find Previous Reading (closest before this date)
       const prevReading = await tx.meterReading.findFirst({
         where: {
@@ -123,7 +124,7 @@ export async function saveMeterReading(data: {
 
 export async function deleteReading(readingId: number) {
     try {
-        const result = await prisma.$transaction(async (tx: any) => {
+        await prisma.$transaction(async (tx) => {
             // Check if it's the latest reading
             const reading = await tx.meterReading.findUnique({ where: { id: readingId } })
             if (!reading) throw new Error('Reading not found')
@@ -161,14 +162,14 @@ export async function deleteReading(readingId: number) {
         revalidatePath('/dashboard')
         revalidatePath('/financial')
         return { success: true }
-    } catch (error: any) {
-        return { success: false, error: error.message }
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 }
 
 export async function updateReading(readingId: number, data: { readingValue: number }) {
     try {
-        await prisma.$transaction(async (tx: any) => {
+        await prisma.$transaction(async (tx) => {
             // Check if latest
             const reading = await tx.meterReading.findUnique({ where: { id: readingId } })
             if (!reading) throw new Error('Reading not found')
@@ -249,8 +250,8 @@ export async function updateReading(readingId: number, data: { readingValue: num
         revalidatePath('/dashboard')
         revalidatePath('/financial')
         return { success: true }
-    } catch (error: any) {
-        return { success: false, error: error.message }
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 }
 
@@ -261,7 +262,7 @@ export async function getUnitReadings(unitId: number) {
       orderBy: { readingDate: 'desc' },
     })
     return { success: true, data: readings.map(serializeReading) }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch readings' }
   }
 }

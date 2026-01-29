@@ -1,4 +1,5 @@
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const XLSX = require('xlsx');
 const filename = '/Users/liyang/VPS/gwsyugu/2026.1.25.xls';
 

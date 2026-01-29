@@ -1,14 +1,23 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { Unit } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 
-export async function importUnits(unitsData: any[]) {
+interface ImportUnitData {
+  name: string
+  code?: string
+  contactInfo?: string
+  area?: number | string
+  unitPrice?: number | string
+  initialBalance?: number | string
+  baseTemp?: number | string
+}
+
+export async function importUnits(unitsData: ImportUnitData[]) {
   try {
     let successCount = 0
     let errorCount = 0
-    let errors: string[] = []
+    const errors: string[] = []
 
     for (const data of unitsData) {
       try {
@@ -26,7 +35,7 @@ export async function importUnits(unitsData: any[]) {
           // Update existing unit
           const initialBalance = data.initialBalance !== undefined ? Number(data.initialBalance) : undefined
 
-          await prisma.$transaction(async (tx: any) => {
+          await prisma.$transaction(async (tx) => {
             // Update Unit Fields
             await tx.unit.update({
               where: { id: existingUnit.id },
@@ -74,7 +83,7 @@ export async function importUnits(unitsData: any[]) {
           })
         } else {
           // Create new unit with transaction
-          await prisma.$transaction(async (tx: any) => {
+          await prisma.$transaction(async (tx) => {
             const initialBalance = data.initialBalance ? Number(data.initialBalance) : 0
 
             const newUnit = await tx.unit.create({
@@ -104,31 +113,36 @@ export async function importUnits(unitsData: any[]) {
           })
         }
         successCount++
-      } catch (error: any) {
+      } catch (error) {
         errorCount++
-        errors.push(`Row ${data.name || 'unknown'}: ${error.message}`)
+        errors.push(`Row ${data.name || 'unknown'}: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
     revalidatePath('/units')
     revalidatePath('/dashboard')
     revalidatePath('/financial')
-    revalidatePath('/units')
-    revalidatePath('/dashboard')
-    revalidatePath('/financial')
     return { success: true, successCount, errorCount, errors }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
 import { fetchTemperatureForDate } from '@/lib/weather'
 
-export async function importReadings(readingsData: any[]) {
+interface ImportReadingData {
+  unitName: string
+  readingDate: string | Date
+  readingValue: number | string
+  dailyAvgTemp?: number | string
+  remarks?: string
+}
+
+export async function importReadings(readingsData: ImportReadingData[]) {
   try {
     let successCount = 0
     let errorCount = 0
-    let errors: string[] = []
+    const errors: string[] = []
 
     // Sort readings by date ascending to ensure correct billing sequence
     readingsData.sort((a, b) => new Date(a.readingDate).getTime() - new Date(b.readingDate).getTime())
@@ -162,7 +176,7 @@ export async function importReadings(readingsData: any[]) {
         }
 
         // Use transaction for billing logic (Same as saveMeterReading)
-        await prisma.$transaction(async (tx: any) => {
+        await prisma.$transaction(async (tx) => {
             // ... (rest of logic) ...
             // 1. Find Previous Reading (closest before this date)
             const prevReading = await tx.meterReading.findFirst({
@@ -234,9 +248,9 @@ export async function importReadings(readingsData: any[]) {
         })
 
         successCount++
-      } catch (error: any) {
+      } catch (error) {
         errorCount++
-        errors.push(`Row ${data.unitName} - ${data.readingDate}: ${error.message}`)
+        errors.push(`Row ${data.unitName} - ${data.readingDate}: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
@@ -244,8 +258,8 @@ export async function importReadings(readingsData: any[]) {
     revalidatePath('/dashboard')
     revalidatePath('/financial')
     return { success: true, successCount, errorCount, errors }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 

@@ -4,7 +4,6 @@ import { Layout, Menu, Button } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
-  BarChartOutlined,
   SettingOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,

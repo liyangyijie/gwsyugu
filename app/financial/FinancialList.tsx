@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Table, Tag, Button, Popconfirm, message } from 'antd';
 import { DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';

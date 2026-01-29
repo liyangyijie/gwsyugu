@@ -8,7 +8,7 @@ export async function getDashboardStats() {
         let arrearsCount = 0
         let arrearsAmount = 0
 
-        units.forEach((u: any) => {
+        units.forEach((u) => {
             const bal = Number(u.accountBalance)
             totalBalance += bal
             if (bal < 0) {
@@ -26,7 +26,7 @@ export async function getDashboardStats() {
                 unitCount: units.length
             }
         }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed' }
     }
 }

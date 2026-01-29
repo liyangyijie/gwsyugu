@@ -3,12 +3,14 @@
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const serializeTransaction = (t: any) => ({
   ...t,
   amount: Number(t.amount),
   balanceAfter: Number(t.balanceAfter),
 })
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const serializeUnit = (u: any) => ({
   ...u,
   accountBalance: Number(u.accountBalance),
@@ -19,7 +21,7 @@ const serializeUnit = (u: any) => ({
 
 export async function rechargeUnit(unitId: number, amount: number, date: Date, remarks?: string) {
   try {
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx) => {
         // Update Balance
         const updatedUnit = await tx.unit.update({
             where: { id: unitId },
@@ -61,7 +63,7 @@ export async function adjustBalance(unitId: number, type: 'ADD' | 'SUBTRACT', am
     const adjustmentAmount = type === 'ADD' ? amount : -amount
 
     try {
-        const result = await prisma.$transaction(async (tx: any) => {
+        const result = await prisma.$transaction(async (tx) => {
             const updatedUnit = await tx.unit.update({
                 where: { id: unitId },
                 data: { accountBalance: { increment: adjustmentAmount } },
@@ -88,7 +90,7 @@ export async function adjustBalance(unitId: number, type: 'ADD' | 'SUBTRACT', am
         revalidatePath('/dashboard')
         revalidatePath('/financial')
         return { success: true, data: serializeUnit(result) }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Adjustment failed' }
     }
 }
@@ -101,14 +103,14 @@ export async function getAllTransactions() {
             take: 200
         })
         return { success: true, data: transactions.map(serializeTransaction) }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed' }
     }
 }
 
 export async function deleteTransaction(transactionId: number) {
     try {
-        await prisma.$transaction(async (tx: any) => {
+        await prisma.$transaction(async (tx) => {
             const transaction = await tx.accountTransaction.findUnique({
                 where: { id: transactionId }
             })
@@ -149,7 +151,7 @@ export async function deleteTransaction(transactionId: number) {
         revalidatePath('/units')
         revalidatePath('/dashboard')
         return { success: true }
-    } catch (error: any) {
-        return { success: false, error: error.message }
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 }

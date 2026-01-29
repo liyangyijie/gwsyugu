@@ -1,5 +1,6 @@
 'use client';
-import { Tabs, Descriptions, Tag, Button, Card, Statistic, Modal, Form, Input, InputNumber, message } from 'antd';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Tabs, Descriptions, Tag, Button, Statistic, Modal, Form, Input, InputNumber, message } from 'antd';
 import { EditOutlined, FireOutlined, ClockCircleOutlined, CalendarOutlined, WalletOutlined } from '@ant-design/icons';
 import ReadingsTab from '../../components/unit/ReadingsTab';
 import FinancialTab from '../../components/unit/FinancialTab';
@@ -109,7 +110,7 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                         value={Number(unit.accountBalance).toFixed(2)}
                         prefix={<WalletOutlined />}
                         suffix="元"
-                        // @ts-ignore
+                        // @ts-expect-error Ant Design styles prop issue
                         styles={{ content: { color: Number(unit.accountBalance) < 0 ? '#cf1322' : '#3f8600' } }}
                     />
                     <Statistic
@@ -122,7 +123,7 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                         title="预计可用至"
                         value={prediction?.estimatedDate || '-'}
                         prefix={<CalendarOutlined />}
-                        // @ts-ignore
+                        // @ts-expect-error Ant Design styles prop issue
                         styles={{ content: { fontSize: '1.2rem' } }}
                     />
                     <Statistic

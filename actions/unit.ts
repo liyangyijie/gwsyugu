@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
 // Helper to serialize Decimal to number
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const serializeUnit = (unit: any) => {
   if (!unit) return null
   return {
@@ -12,12 +13,14 @@ const serializeUnit = (unit: any) => {
     accountBalance: Number(unit.accountBalance),
     initialBalance: Number(unit.initialBalance),
     // Handle nested arrays if present
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     readings: unit.readings?.map((r: any) => ({
       ...r,
       readingValue: Number(r.readingValue),
       heatUsage: r.heatUsage ? Number(r.heatUsage) : null,
       costAmount: r.costAmount ? Number(r.costAmount) : null,
     })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transactions: unit.transactions?.map((t: any) => ({
       ...t,
       amount: Number(t.amount),
@@ -39,7 +42,7 @@ export async function createUnit(data: {
   const { initialBalance, ...rest } = data
 
   try {
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Create Unit
       const unit = await tx.unit.create({
         data: {
@@ -68,9 +71,10 @@ export async function createUnit(data: {
     revalidatePath('/dashboard')
     revalidatePath('/financial')
     return { success: true, data: serializeUnit(result) }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to create unit:', error)
-    if (error.code === 'P2002') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((error as any).code === 'P2002') {
         return { success: false, error: '单位名称已存在，请使用其他名称' }
     }
     return { success: false, error: 'Failed to create unit' }
@@ -83,9 +87,9 @@ export async function getUnits() {
       orderBy: { createdAt: 'desc' },
     })
     return { success: true, data: units.map(serializeUnit) }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to fetch units:', error)
-    return { success: false, error: 'Failed to fetch units: ' + error.message }
+    return { success: false, error: 'Failed to fetch units: ' + (error instanceof Error ? error.message : String(error)) }
   }
 }
 
@@ -100,11 +104,12 @@ export async function getUnitById(id: number) {
     })
     if (!unit) return { success: false, error: 'Unit not found' }
     return { success: true, data: serializeUnit(unit) }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch unit' }
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateUnit(id: number, data: any) {
     try {
         const unit = await prisma.unit.update({
@@ -114,14 +119,14 @@ export async function updateUnit(id: number, data: any) {
         revalidatePath(`/units/${id}`)
         revalidatePath('/units')
         return { success: true, data: serializeUnit(unit) }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to update unit' }
     }
 }
 
 export async function deleteUnit(id: number) {
     try {
-        await prisma.$transaction(async (tx: any) => {
+        await prisma.$transaction(async (tx) => {
             // Delete Transactions first (Foreign Key constraints usually, though Prisma handles relations if configured, explicit is safer here for clarity)
             await tx.accountTransaction.deleteMany({
                 where: { unitId: id }
@@ -140,15 +145,15 @@ export async function deleteUnit(id: number) {
 
         revalidatePath('/units')
         return { success: true }
-    } catch (error: any) {
+    } catch (error) {
         console.error('Delete unit error:', error)
-        return { success: false, error: '删除失败: ' + error.message }
+        return { success: false, error: '删除失败: ' + (error instanceof Error ? error.message : String(error)) }
     }
 }
 
 export async function deleteUnits(ids: number[]) {
     try {
-        await prisma.$transaction(async (tx: any) => {
+        await prisma.$transaction(async (tx) => {
             // Bulk delete Logic
             // 1. Delete Transactions
             await tx.accountTransaction.deleteMany({
@@ -168,8 +173,8 @@ export async function deleteUnits(ids: number[]) {
         revalidatePath('/dashboard')
         revalidatePath('/financial')
         return { success: true }
-    } catch (error: any) {
+    } catch (error) {
         console.error('Batch delete error:', error)
-        return { success: false, error: '批量删除失败: ' + error.message }
+        return { success: false, error: '批量删除失败: ' + (error instanceof Error ? error.message : String(error)) }
     }
 }

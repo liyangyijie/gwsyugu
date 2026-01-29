@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Table, Tag, Button, Input, Modal, Form, InputNumber, DatePicker, message, Popconfirm } from 'antd';
 import { PlusOutlined, SearchOutlined, FormOutlined, DeleteOutlined, CalculatorOutlined } from '@ant-design/icons';
 import { useState } from 'react';
@@ -48,7 +49,7 @@ export default function UnitList({ units }: { units: any[] }) {
             } else {
                 messageApi.error(res.error);
             }
-        } catch (e) {
+        } catch {
             messageApi.error('操作失败');
         } finally {
             setLoading(false);
@@ -68,7 +69,7 @@ export default function UnitList({ units }: { units: any[] }) {
             } else {
                 messageApi.error(res.error);
             }
-        } catch (e) {
+        } catch {
             messageApi.destroy();
             messageApi.error('操作失败');
         } finally {
@@ -114,7 +115,7 @@ export default function UnitList({ units }: { units: any[] }) {
             } else {
                 messageApi.error('保存失败: ' + res.error);
             }
-        } catch (error) {
+        } catch {
             messageApi.error('系统错误');
         } finally {
             setLoading(false);

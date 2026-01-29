@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, Button, Row, Col, Alert, Spin } from 'antd';
 import { CalculatorOutlined, SyncOutlined, DownloadOutlined, CameraOutlined } from '@ant-design/icons';
 import { useEffect, useState, useRef } from 'react';
@@ -86,8 +87,9 @@ export default function PredictionTab({ unit }: { unit: any }) {
 
     useEffect(() => {
         if (unit.baseHeat !== null) {
-            fetchData();
+            setTimeout(() => fetchData(), 0);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     if (!unit.baseHeat && !calcResult) {

@@ -45,6 +45,7 @@ export async function GET(
         // Sheet 2: Future Prediction (Log)
         // log: [{date, temp, heat, cost, balance}]
         if (data.log && data.log.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const logData = data.log.map((item: any) => ({
                 '日期': item.date,
                 '预测气温 (℃)': parseFloat(item.temp),
@@ -59,6 +60,7 @@ export async function GET(
         // Sheet 3: History Simulation
         // history: [{date, temp, dailyHeat, type}]
         if (data.history && data.history.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const historyData = data.history.map((item: any) => ({
                 '日期': item.date,
                 '实际气温 (℃)': parseFloat(item.temp),
