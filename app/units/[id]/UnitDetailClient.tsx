@@ -1,18 +1,19 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Tabs, Descriptions, Tag, Button, Statistic, Modal, Form, Input, InputNumber, message } from 'antd';
+import { Tabs, Descriptions, Tag, Button, Statistic, Modal, Form, Input, InputNumber, message, Select } from 'antd';
 import { EditOutlined, FireOutlined, ClockCircleOutlined, CalendarOutlined, WalletOutlined } from '@ant-design/icons';
 import ReadingsTab from '../../components/unit/ReadingsTab';
 import FinancialTab from '../../components/unit/FinancialTab';
 import PredictionTab from '../../components/unit/PredictionTab';
 import { useEffect, useState } from 'react';
 import { getPrediction } from '@/actions/prediction';
-import { updateUnit } from '@/actions/unit';
+import { updateUnit, getPotentialParents } from '@/actions/unit';
 import dayjs from 'dayjs';
 
 export default function UnitDetailClient({ unit }: { unit: any }) {
     const [prediction, setPrediction] = useState<any>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [potentialParents, setPotentialParents] = useState<any[]>([]);
     const [editForm] = Form.useForm();
     const [messageApi, contextHolder] = message.useMessage();
 
@@ -98,7 +99,13 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                             contactInfo: unit.contactInfo,
                             area: unit.area,
                             unitPrice: Number(unit.unitPrice),
-                            remarks: unit.remarks
+                            remarks: unit.remarks,
+                            parentUnitId: unit.parentUnitId
+                        });
+                        getPotentialParents(unit.id).then(res => {
+                            if (res.success && Array.isArray(res.data)) {
+                                setPotentialParents(res.data);
+                            }
                         });
                         setIsEditModalOpen(true);
                     }}>修改信息</Button>
@@ -148,6 +155,15 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                     </Form.Item>
                     <Form.Item name="code" label="编号">
                         <Input />
+                    </Form.Item>
+                    <Form.Item name="parentUnitId" label="共用资金账户 (父单位)" tooltip="绑定后，本单位资金将合并至父单位统一管理">
+                        <Select
+                            allowClear
+                            showSearch
+                            placeholder="选择父单位 (留空则为独立账户)"
+                            optionFilterProp="label"
+                            options={potentialParents.map((p: any) => ({ label: `${p.name} (${p.code || '-'})`, value: p.id }))}
+                        />
                     </Form.Item>
                     <Form.Item name="unitPrice" label="单价 (元/GJ)" rules={[{ required: true }]}>
                         <InputNumber style={{ width: '100%' }} />

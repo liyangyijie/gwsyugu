@@ -112,17 +112,130 @@ export async function getUnitById(id: number) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateUnit(id: number, data: any) {
+    const { parentUnitId, ...otherData } = data;
+
+    // If parentUnitId is not involved in this update, use simple update
+    if (parentUnitId === undefined) {
+        try {
+            const unit = await prisma.unit.update({
+                where: { id },
+                data: otherData,
+            })
+            revalidatePath(`/units/${id}`)
+            revalidatePath('/units')
+            return { success: true, data: serializeUnit(unit) }
+        } catch {
+            return { success: false, error: 'Failed to update unit' }
+        }
+    }
+
+    // Handle Parent Change with Transaction
     try {
-        const unit = await prisma.unit.update({
-            where: { id },
-            data,
-        })
+        const result = await prisma.$transaction(async (tx) => {
+            const currentUnit = await tx.unit.findUnique({
+                where: { id },
+                include: { childUnits: true }
+            });
+
+            if (!currentUnit) throw new Error("Unit not found");
+
+            // 1. Validation
+            if (parentUnitId) {
+                if (parentUnitId === id) throw new Error("无法将自己设为父单位");
+
+                // Check if target is one of my children (Circular)
+                const isMyChild = currentUnit.childUnits.some(c => c.id === parentUnitId);
+                if (isMyChild) throw new Error("无法将子单位设为父单位 (循环依赖)");
+
+                const targetParent = await tx.unit.findUnique({ where: { id: parentUnitId } });
+                if (!targetParent) throw new Error("目标父单位不存在");
+
+                // Check max depth (Target must not have a parent)
+                if (targetParent.parentUnitId) throw new Error("目标单位已有所属父单位 (最多支持二级层级)");
+            }
+
+            // 2. Fund Transfer Logic (Only when Linking to a NEW parent)
+            if (parentUnitId && parentUnitId !== currentUnit.parentUnitId) {
+                const balanceToTransfer = Number(currentUnit.accountBalance);
+
+                // Only transfer if there is a positive/negative balance
+                if (balanceToTransfer !== 0) {
+                    // Deduct from Child
+                    await tx.accountTransaction.create({
+                        data: {
+                            unitId: id,
+                            type: 'ADJUSTMENT',
+                            amount: -balanceToTransfer,
+                            balanceAfter: 0,
+                            summary: '资金合并',
+                            remarks: `绑定共用账户，余额转入 Parent ID: ${parentUnitId}`,
+                        }
+                    });
+
+                    // Add to Parent
+                    const parent = await tx.unit.findUnique({ where: { id: parentUnitId }});
+                    const parentNewBalance = Number(parent!.accountBalance) + balanceToTransfer;
+
+                    await tx.accountTransaction.create({
+                        data: {
+                            unitId: parentUnitId,
+                            type: 'ADJUSTMENT',
+                            amount: balanceToTransfer,
+                            balanceAfter: parentNewBalance,
+                            summary: '资金合并',
+                            remarks: `子账户绑定转入，来源 Unit ID: ${id}`,
+                        }
+                    });
+
+                    // Update Parent Balance
+                    await tx.unit.update({
+                        where: { id: parentUnitId },
+                        data: { accountBalance: parentNewBalance }
+                    });
+                }
+            }
+            // Note: If Unlinking (parentUnitId === null), we don't transfer funds back automatically.
+            // The child starts with 0 (or whatever it had, which should be 0).
+            // The parent keeps the funds.
+
+            // 3. Update the Unit
+            const updatedUnit = await tx.unit.update({
+                where: { id },
+                data: {
+                    ...otherData,
+                    parentUnitId: parentUnitId,
+                    // If we just linked (parentUnitId not null), balance is 0 (we transferred it).
+                    // If we unlinked, balance is whatever it was (likely 0).
+                    accountBalance: parentUnitId ? 0 : currentUnit.accountBalance
+                }
+            });
+
+            return updatedUnit;
+        });
+
         revalidatePath(`/units/${id}`)
         revalidatePath('/units')
-        return { success: true, data: serializeUnit(unit) }
-    } catch {
-        return { success: false, error: 'Failed to update unit' }
+        return { success: true, data: serializeUnit(result) }
+
+    } catch (error) {
+        console.error('Update unit failed:', error);
+        return { success: false, error: '更新失败: ' + (error instanceof Error ? error.message : String(error)) }
     }
+}
+
+export async function getPotentialParents(currentUnitId: number) {
+  try {
+    const units = await prisma.unit.findMany({
+      where: {
+        id: { not: currentUnitId },
+        parentUnitId: null
+      },
+      select: { id: true, name: true, code: true }
+    })
+    return { success: true, data: units }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch parents' }
+  }
 }
 
 export async function deleteUnit(id: number) {
