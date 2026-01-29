@@ -96,6 +96,7 @@ export default function DataManagementPage() {
         unitPrice: row['单价'] || row['unitPrice'],
         baseTemp: row['基准温度'] || row['baseTemp'],
         initialBalance: row['初始余额'] || row['initialBalance'],
+        paymentParent: row['共用账户(父单位名称)'] || row['共用账户'] || row['paymentParent'],
       })).filter((r: any) => r.name) // Filter empty rows
 
       const result = await importUnits(mappedData)
@@ -367,7 +368,26 @@ export default function DataManagementPage() {
   // -- Template Download --
   const downloadUnitTemplate = () => {
     const template = [
-      { '单位名称': '示例单位', '编号': '001', '联系方式': '13800138000', '面积': 100, '单价': 88, '基准温度': 15, '初始余额': 0 }
+      {
+        '单位名称': '独立/主账户单位',
+        '编号': 'A001',
+        '联系方式': '13800138000',
+        '面积': 100,
+        '单价': 88,
+        '基准温度': 15,
+        '初始余额': 5000,
+        '共用账户(父单位名称)': ''
+      },
+      {
+        '单位名称': '子单位(绑定到主账户)',
+        '编号': 'B002',
+        '联系方式': '13900139000',
+        '面积': 90,
+        '单价': 88,
+        '基准温度': 15,
+        '初始余额': 0, // 子单位初始余额将自动合并到父账户
+        '共用账户(父单位名称)': '独立/主账户单位'
+      }
     ]
     const ws = XLSX.utils.json_to_sheet(template)
     const wb = XLSX.utils.book_new()
