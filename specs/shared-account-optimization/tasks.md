@@ -27,7 +27,7 @@
   - Map column to `paymentParent` during import.
   - _File: `app/settings/page.tsx`_
 
-- [ ] 6. Implement Unit Management Optimization (Merge/Separate)
+- [x] 6. Implement Unit Management Optimization (Merge/Separate)
   - Add "Parent Unit" selector to Edit Modal in `UnitDetailClient`.
   - Update `updateUnit` action to handle relationship changes.
   - Implement fund transfer logic (Child Balance -> Parent) when linking.
