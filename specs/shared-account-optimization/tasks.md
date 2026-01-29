@@ -33,3 +33,8 @@
   - Implement fund transfer logic (Child Balance -> Parent) when linking.
   - Prevent circular/deep nesting.
   - _Files: `app/app/units/[id]/UnitDetailClient.tsx`, `app/actions/unit.ts`_
+
+- [x] 7. Optimization of Export Functionality
+  - Support exporting all meter readings.
+  - Optimize unit export to include Shared Account column (compatible with Import).
+  - _Files: `app/actions/data-management.ts`, `app/settings/page.tsx`_

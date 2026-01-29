@@ -305,9 +305,22 @@ export async function importReadings(readingsData: ImportReadingData[]) {
 
 export async function getAllUnitsForExport() {
   const units = await prisma.unit.findMany({
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    include: { parentUnit: true }
   })
   return units
+}
+
+export async function getReadingsForExport() {
+  const readings = await prisma.meterReading.findMany({
+    orderBy: { readingDate: 'desc' },
+    include: {
+      unit: {
+        select: { name: true }
+      }
+    }
+  })
+  return readings
 }
 
 export async function getFinancialReportForExport() {

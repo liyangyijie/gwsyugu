@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Upload, Button, message, Card, Table, Tabs, Alert, Input, Form, InputNumber, Modal } from 'antd'
 import { UploadOutlined, DownloadOutlined, FileExcelOutlined, EnvironmentOutlined, ExperimentOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons'
 import * as XLSX from 'xlsx'
-import { importUnits, importReadings, getAllUnitsForExport, getFinancialReportForExport } from '@/actions/data-management'
+import { importUnits, importReadings, getAllUnitsForExport, getFinancialReportForExport, getReadingsForExport } from '@/actions/data-management'
 import { getCitySetting, saveCitySetting, testWeather } from '@/actions/settings'
 
 export default function DataManagementPage() {
@@ -317,6 +317,7 @@ export default function DataManagementPage() {
         '基准温度': u.baseTemp,
         '基准热量': u.baseHeat,
         '温度系数': u.tempCoeff,
+        '共用账户(父单位名称)': u.parentUnit ? u.parentUnit.name : '',
         '状态': u.status === 'NORMAL' ? '正常' : '欠费',
         '创建时间': new Date(u.createdAt).toLocaleDateString()
       }))
@@ -358,6 +359,31 @@ export default function DataManagementPage() {
       XLSX.utils.book_append_sheet(wb, ws, '财务流水')
       XLSX.writeFile(wb, `财务报表_${new Date().toISOString().split('T')[0]}.xlsx`)
       messageApi.success('财务报表导出成功')
+    } catch (err: any) {
+      messageApi.error('导出失败: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExportReadings = async () => {
+    setLoading(true)
+    try {
+      const readings = await getReadingsForExport()
+      // Map to Chinese headers compatible with Import
+      const data = readings.map((r: any) => ({
+        '单位名称': r.unit.name,
+        '抄表日期': new Date(r.readingDate).toLocaleDateString(),
+        '今日表数': Number(r.readingValue),
+        '日均气温': r.dailyAvgTemp,
+        '备注': r.remarks
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, '抄表记录')
+      XLSX.writeFile(wb, `抄表记录导出_${new Date().toISOString().split('T')[0]}.xlsx`)
+      messageApi.success('抄表记录导出成功')
     } catch (err: any) {
       messageApi.error('导出失败: ' + err.message)
     } finally {
@@ -575,6 +601,14 @@ export default function DataManagementPage() {
                     <p className="text-xs text-green-600">包含所有充值、扣费等历史交易流水</p>
                     </div>
                     <Button icon={<FileExcelOutlined />} onClick={handleExportFinancials} loading={loading}>导出 Excel</Button>
+                </div>
+
+                <div className="p-4 bg-purple-50 rounded border border-purple-100 flex items-center justify-between">
+                    <div>
+                    <h3 className="font-semibold text-purple-900">抄表记录导出</h3>
+                    <p className="text-xs text-purple-600">包含所有历史抄表数据，可直接用于重新导入</p>
+                    </div>
+                    <Button icon={<FileExcelOutlined />} onClick={handleExportReadings} loading={loading}>导出 Excel</Button>
                 </div>
             </div>
             </Card>
