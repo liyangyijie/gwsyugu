@@ -26,3 +26,10 @@
   - Add '共用账户(父单位名称)' column to template.
   - Map column to `paymentParent` during import.
   - _File: `app/settings/page.tsx`_
+
+- [ ] 6. Implement Unit Management Optimization (Merge/Separate)
+  - Add "Parent Unit" selector to Edit Modal in `UnitDetailClient`.
+  - Update `updateUnit` action to handle relationship changes.
+  - Implement fund transfer logic (Child Balance -> Parent) when linking.
+  - Prevent circular/deep nesting.
+  - _Files: `app/app/units/[id]/UnitDetailClient.tsx`, `app/actions/unit.ts`_

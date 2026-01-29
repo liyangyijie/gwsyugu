@@ -33,3 +33,22 @@ To improve robustness for units sharing a capital account (Parent-Child model), 
 ## 3. UI/UX Improvements
 *   **Virtual Balance**: When viewing a Child unit, display the Parent's balance as "Available Shared Balance".
 *   **Entry Lock/Warning**: Warn users when charging a Child unit that funds go to the Parent.
+
+## 4. Unit Management Optimization (New)
+*   **Requirement**: Allow administrators to modify the Parent-Child relationship for existing units (Merge/Separate).
+*   **UI Implementation**:
+    *   In `UnitDetailClient` -> Edit Modal, add a "Shared Capital Account (Parent Unit)" selection field.
+    *   Allow selecting an existing unit as Parent, or clearing it to make the unit independent.
+*   **Backend Logic (`updateUnit`)**:
+    *   **Linking (Independent -> Child)**:
+        *   When Unit B (Balance $X$) is linked to Parent A:
+        *   Transfer $X from Unit B to Parent A.
+        *   Create `ADJUSTMENT` transaction for B: "Transfer to Parent A" (Amount: -$X).
+        *   Create `ADJUSTMENT` transaction for A: "Transfer from Child B" (Amount: +$X).
+        *   Set B's `paymentParentId` to A's ID.
+    *   **Unlinking (Child -> Independent)**:
+        *   When Unit B is unlinked from Parent A:
+        *   B starts with 0 balance (or remains 0).
+        *   A retains the funds. (Alternatively, admin can manually transfer funds back if needed).
+        *   Set B's `paymentParentId` to `null`.
+*   **Constraint**: Prevent circular dependency (A->B->A) and depth > 1 (A->B->C). Only allow selecting a Parent that does NOT have a Parent itself.
