@@ -7,22 +7,44 @@ import dayjs from 'dayjs'
 
 // const HEATING_START_DATE = '2025-11-15'; // Removed fixed date
 
+import { fetchTemperatureForDate, fetchWeather } from '@/lib/weather'
+
 export async function calculateUnitParams(unitId: number) {
   try {
+    // 0. Get Location Settings (Moved up for auto-heal)
+    const cityConfig = await getCitySetting()
+    const cityInfo = cityConfig.data || { name: '淄博 (默认)', lat: 36.81, lon: 118.05 }
+
+    // 1. Auto-heal: Check for readings with missing temperature and fetch them
+    const incompleteReadings = await prisma.meterReading.findMany({
+        where: { unitId, dailyAvgTemp: null },
+        take: 20 // Limit batch size for performance
+    })
+
+    if (incompleteReadings.length > 0) {
+        // console.log(`Auto-healing ${incompleteReadings.length} readings for unit ${unitId}`)
+        for (const r of incompleteReadings) {
+            // Pass lat/lon to avoid repeated config lookups
+            const temp = await fetchTemperatureForDate(r.readingDate, cityInfo.lat, cityInfo.lon)
+            if (temp !== null) {
+                await prisma.meterReading.update({
+                    where: { id: r.id },
+                    data: { dailyAvgTemp: temp }
+                })
+            }
+        }
+    }
+
     const readings = await prisma.meterReading.findMany({
       where: {
         unitId,
         dailyAvgTemp: { not: null },
-        heatUsage: { not: null }
+        heatUsage: { not: null } // Usage must be calculated (non-null)
       },
       orderBy: { readingDate: 'asc' }
     })
 
-    if (readings.length < 3) return { success: false, error: 'Not enough data (min 3 records)' }
-
-    // 2. Get Location Settings
-    const cityConfig = await getCitySetting()
-    const cityInfo = cityConfig.data || { name: '淄博 (默认)', lat: 36.81, lon: 118.05 }
+    if (readings.length < 3) return { success: false, error: '数据不足 (至少需要3次有效抄表记录)' }
 
     // First reading is the start, but we can't calculate interval for it.
     // So we use it as the start point for the next reading.
@@ -34,7 +56,7 @@ export async function calculateUnitParams(unitId: number) {
     const pastDays = Math.max(0, today.diff(start, 'day') + 5);
     const weatherData = await fetchWeather(cityInfo.lat, cityInfo.lon, 14, pastDays);
     const tempMap = new Map<string, number>();
-    weatherData.forEach((w: any) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
+    weatherData.forEach((w) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
     const data: number[][] = []
     // Start loop from second reading
     for (let i = 1; i < readings.length; i++) {
@@ -112,38 +134,6 @@ export async function calculateUnitParams(unitId: number) {
 // Open-Meteo API for historical/forecast weather
 import { getCitySetting } from './settings'
 
-async function fetchWeather(lat?: number, lon?: number, days: number = 7, pastDays: number = 0) {
-  if (!lat || !lon) {
-      // Fetch from settings if not provided
-      const config = await getCitySetting()
-      if (config.success && config.data) {
-          lat = config.data.lat
-          lon = config.data.lon
-      } else {
-          lat = 36.81
-          lon = 118.05
-      }
-  }
-
-  // https://api.open-meteo.com/v1/forecast
-  try {
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=${days}&past_days=${pastDays}`)
-    const data = await res.json()
-    if (!data.daily) throw new Error('No weather data')
-
-    // Process to simple [{date, temp}] array
-    const result = data.daily.time.map((time: string, index: number) => {
-      const max = data.daily.temperature_2m_max[index]
-      const min = data.daily.temperature_2m_min[index]
-      const avg = (max + min) / 2
-      return { date: new Date(time), temp: avg }
-    })
-    return result
-  } catch (e) {
-    console.error('Weather API Error:', e)
-    return []
-  }
-}
 
 export async function getPrediction(unitId: number, forceRefresh: boolean = false) {
   try {
@@ -163,7 +153,7 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
                 if (Math.abs(cachedData.currentBalance - Number(unit.accountBalance)) < 0.01) {
                     return { success: true, data: cachedData };
                 }
-            } catch (e) {
+            } catch {
                 // Ignore cache error
             }
         }
@@ -197,7 +187,7 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
 
     // Map date -> temp
     const tempMap = new Map<string, number>();
-    weatherData.forEach((w: any) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
+    weatherData.forEach((w) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
 
     // Generate History Points (Dense)
     const history = [];
@@ -274,7 +264,7 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
 
     // 4. Forecast Logic
     // Filter weatherData for future
-    let forecast = weatherData.filter((w: any) => dayjs(w.date).isAfter(today.subtract(1, 'day')));
+    const forecast = weatherData.filter((w) => dayjs(w.date).isAfter(today.subtract(1, 'day')));
 
     // If API fails or we need more days (API usually gives 7-14 days free), extend it
     // ... existing logic ...
@@ -397,8 +387,8 @@ export async function calculateBatchParams(unitIds: number[]) {
 
         revalidatePath('/units')
         return { success: true, successCount, failCount }
-    } catch (error: any) {
-        return { success: false, error: error.message }
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 }
 

@@ -5,8 +5,8 @@ async function getConfig() {
     try {
         const s = await prisma.systemSetting.findUnique({ where: { key: 'city_config' } })
         if (s) return JSON.parse(s.value)
-    } catch(e) {
-        // console.error("Config fetch failed", e)
+    } catch {
+        // console.error("Config fetch failed")
     }
     return { lat: 36.81, lon: 118.05 } // Default Zibo
 }
@@ -32,7 +32,7 @@ export async function fetchWeather(lat?: number, lon?: number, days: number = 7,
         }
     })
 
-    const weatherMap = new Map<string, any>()
+    const weatherMap = new Map<string, number>()
     dbWeather.forEach(w => weatherMap.set(w.date, w.temp))
 
     const missingDates: string[] = []
@@ -52,8 +52,6 @@ export async function fetchWeather(lat?: number, lon?: number, days: number = 7,
     if (missingDates.length > 0) {
         // Simple strategy: Fetch whole range from API if there are gaps to keep logic simple
         // In prod, could identify sub-ranges.
-        const apiStart = missingDates[0];
-        const apiEnd = missingDates[missingDates.length - 1];
 
         try {
              // For past dates far behind, use Archive API if needed, but Forecast API usually covers recent 90 days.
@@ -73,7 +71,7 @@ export async function fetchWeather(lat?: number, lon?: number, days: number = 7,
                         minTemp: min,
                         maxTemp: max
                     }
-                }).filter((x: any) => x !== null)
+                }).filter((x) => x !== null)
 
                 // Save to DB
                 for (const w of upserts) {
