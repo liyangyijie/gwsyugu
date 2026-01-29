@@ -380,3 +380,25 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
   }
 }
 
+export async function calculateBatchParams(unitIds: number[]) {
+    try {
+        let successCount = 0
+        let failCount = 0
+
+        for (const id of unitIds) {
+            // Call existing single calc logic
+            // Note: calculateUnitParams requires min 3 valid readings.
+            // We run it sequentially to avoid DB lock/congestion on heavy calc? No, linear regression is fast.
+            // Sequential is fine for stability.
+            const res = await calculateUnitParams(id)
+            if (res.success) successCount++
+            else failCount++
+        }
+
+        revalidatePath('/units')
+        return { success: true, successCount, failCount }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+}
+

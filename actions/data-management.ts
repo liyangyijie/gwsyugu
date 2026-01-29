@@ -122,6 +122,8 @@ export async function importUnits(unitsData: any[]) {
   }
 }
 
+import { fetchTemperatureForDate } from '@/lib/weather'
+
 export async function importReadings(readingsData: any[]) {
   try {
     let successCount = 0
@@ -133,7 +135,7 @@ export async function importReadings(readingsData: any[]) {
 
     for (const data of readingsData) {
       try {
-        // Validate
+        // ... (validation) ...
         if (!data.unitName || !data.readingDate || !data.readingValue) {
           throw new Error('Missing required fields (unitName, readingDate, readingValue)')
         }
@@ -150,8 +152,18 @@ export async function importReadings(readingsData: any[]) {
         const readingDate = new Date(data.readingDate)
         const readingValue = Number(data.readingValue)
 
+        // Auto-fetch temperature if missing
+        let dailyAvgTemp = data.dailyAvgTemp ? Number(data.dailyAvgTemp) : null
+        if (dailyAvgTemp === null) {
+            const fetchedTemp = await fetchTemperatureForDate(readingDate)
+            if (fetchedTemp !== null) {
+                dailyAvgTemp = fetchedTemp
+            }
+        }
+
         // Use transaction for billing logic (Same as saveMeterReading)
         await prisma.$transaction(async (tx: any) => {
+            // ... (rest of logic) ...
             // 1. Find Previous Reading (closest before this date)
             const prevReading = await tx.meterReading.findFirst({
                 where: {
@@ -178,7 +190,7 @@ export async function importReadings(readingsData: any[]) {
                     unitId: unit.id,
                     readingDate,
                     readingValue,
-                    dailyAvgTemp: data.dailyAvgTemp ? Number(data.dailyAvgTemp) : null,
+                    dailyAvgTemp, // Use the fetched/provided temp
                     heatUsage,
                     costAmount,
                     isBilled: false, // Will set to true if billed

@@ -145,3 +145,31 @@ export async function deleteUnit(id: number) {
         return { success: false, error: '删除失败: ' + error.message }
     }
 }
+
+export async function deleteUnits(ids: number[]) {
+    try {
+        await prisma.$transaction(async (tx: any) => {
+            // Bulk delete Logic
+            // 1. Delete Transactions
+            await tx.accountTransaction.deleteMany({
+                where: { unitId: { in: ids } }
+            })
+            // 2. Delete Readings
+            await tx.meterReading.deleteMany({
+                where: { unitId: { in: ids } }
+            })
+            // 3. Delete Units
+            await tx.unit.deleteMany({
+                where: { id: { in: ids } }
+            })
+        })
+
+        revalidatePath('/units')
+        revalidatePath('/dashboard')
+        revalidatePath('/financial')
+        return { success: true }
+    } catch (error: any) {
+        console.error('Batch delete error:', error)
+        return { success: false, error: '批量删除失败: ' + error.message }
+    }
+}
