@@ -392,3 +392,13 @@ export async function calculateBatchParams(unitIds: number[]) {
     }
 }
 
+export async function calculateAllUnitsParams() {
+    try {
+        const units = await prisma.unit.findMany({ select: { id: true } })
+        const unitIds = units.map((u) => u.id)
+        return await calculateBatchParams(unitIds)
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+}
+

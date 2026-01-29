@@ -1,10 +1,12 @@
 import { getDashboardStats } from '@/actions/stats';
-import { Card, Statistic, Row, Col, Alert } from 'antd';
+import { Card, Statistic, Row, Col, Alert, Tag } from 'antd';
 import { UserOutlined, WarningOutlined, BankOutlined, WalletOutlined } from '@ant-design/icons';
+import Link from 'next/link';
+import { OneClickCalculateButton } from './DashboardActions';
 
 export default async function DashboardPage() {
     const res = await getDashboardStats();
-    const stats = res.data || { totalBalance: 0, arrearsCount: 0, arrearsAmount: 0, unitCount: 0 };
+    const stats = res.data || { totalBalance: 0, arrearsCount: 0, arrearsAmount: 0, unitCount: 0, warningUnits: [] };
 
     return (
         <div className="space-y-6">
@@ -70,11 +72,40 @@ export default async function DashboardPage() {
                 </Col>
             </Row>
 
+            {/* Prediction Warnings */}
             <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h3 className="text-lg font-medium mb-4">快捷操作</h3>
-                <div className="text-gray-500">
-                    暂无快捷操作。请前往“单位管理”进行操作。
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                        <WarningOutlined className="text-orange-500" />
+                        预测预警 (剩余不足30天)
+                    </h3>
+                    <OneClickCalculateButton />
                 </div>
+
+                {stats.warningUnits && stats.warningUnits.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {stats.warningUnits.map((u: any) => (
+                            <Link href={`/units/${u.id}`} key={u.id} className="block hover:no-underline">
+                                <Card size="small" hoverable className="border-l-4 border-l-orange-500 h-full">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="font-bold text-gray-800 truncate pr-2" title={u.name}>{u.name}</span>
+                                        <Tag color={u.remainingDays < 15 ? 'red' : 'orange'}>
+                                            剩 {u.remainingDays} 天
+                                        </Tag>
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        预计可用至: {u.estimatedDate || '-'}
+                                    </div>
+                                </Card>
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-gray-400 text-center py-8 bg-gray-50 rounded border border-dashed border-gray-200">
+                        暂无预警单位 (所有单位余额充足或未进行预测)
+                    </div>
+                )}
             </div>
         </div>
     );
