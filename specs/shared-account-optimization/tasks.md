@@ -21,3 +21,8 @@
   - Handle `incompleteData` warning in prediction view.
   - Warn users when recharging child units.
   - _Files: `app/app/units/[id]/UnitDetailClient.tsx`, `app/app/components/unit/FinancialTab.tsx`, `app/app/components/unit/PredictionTab.tsx`_
+
+- [x] 5. Update Unit Import Template (Frontend)
+  - Add '共用账户(父单位名称)' column to template.
+  - Map column to `paymentParent` during import.
+  - _File: `app/settings/page.tsx`_
