@@ -3,7 +3,7 @@ set -e
 
 # =================配置区域=================
 REPO_URL="https://github.com/liyangyijie/gwsyugu.git"
-APP_DIR="/root/gwsyugu"
+APP_DIR="/root/gwsyugu-docker"
 PORT=3000
 # =========================================
 

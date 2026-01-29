@@ -4,7 +4,7 @@ set -e
 # Configuration - 请修改为您的 VPS IP
 VPS_USER="root"
 VPS_HOST="YOUR_VPS_IP"
-REMOTE_DIR="/root/gwsyugu"
+REMOTE_DIR="/root/gwsyugu-docker"
 
 echo "🚀 Deploying to VPS ($VPS_HOST)..."
 
