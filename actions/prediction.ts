@@ -208,15 +208,25 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
         }
 
         if (parentPred.success) {
+            const childResultData = {
+                ...parentPred.data,
+                history: selfHistory.length > 0 ? selfHistory : parentPred.data.history, // Prefer self history
+                isChild: true,
+                parentName: unit.parentUnit?.name,
+                unitName: unit.name
+            }
+
+            // Cache the Shared Result for the Child
+            // This ensures dashboard stats (which read this table) see the "Shared" remaining days
+            await prisma.unitPrediction.upsert({
+                where: { unitId },
+                update: { data: JSON.stringify(childResultData) },
+                create: { unitId, data: JSON.stringify(childResultData) }
+            });
+
             return {
                 ...parentPred,
-                data: {
-                    ...parentPred.data,
-                    history: selfHistory.length > 0 ? selfHistory : parentPred.data.history, // Prefer self history
-                    isChild: true,
-                    parentName: unit.parentUnit?.name,
-                    unitName: unit.name
-                }
+                data: childResultData
             }
         }
         return parentPred
@@ -533,16 +543,22 @@ export async function calculateBatchParams(unitIds: number[]) {
         let failCount = 0
 
         for (const id of unitIds) {
-            // Call existing single calc logic
-            // Note: calculateUnitParams requires min 3 valid readings.
-            // We run it sequentially to avoid DB lock/congestion on heavy calc? No, linear regression is fast.
-            // Sequential is fine for stability.
+            // 1. Calculate Params (Physics Model)
             const res = await calculateUnitParams(id)
             if (res.success) successCount++
             else failCount++
+
+            // 2. Refresh Prediction Cache (Financial Forecast)
+            // Essential for Dashboard Warnings to update immediately
+            try {
+                await getPrediction(id, true)
+            } catch {
+                // Ignore prediction errors during batch (e.g. missing params)
+            }
         }
 
         revalidatePath('/units')
+        revalidatePath('/dashboard')
         return { success: true, successCount, failCount }
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : String(error) }

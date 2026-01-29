@@ -38,3 +38,8 @@
   - Support exporting all meter readings.
   - Optimize unit export to include Shared Account column (compatible with Import).
   - _Files: `app/actions/data-management.ts`, `app/settings/page.tsx`_
+
+- [x] 8. Fix Dashboard Warning for Shared Accounts
+  - Update `getPrediction` to cache shared forecast for Child units.
+  - Update `calculateBatchParams` to trigger prediction refresh.
+  - _File: `app/actions/prediction.ts`_
