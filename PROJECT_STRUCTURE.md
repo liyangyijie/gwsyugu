@@ -37,8 +37,6 @@ The main application code resides in the `app/` directory (which is also the Git
 - **`public/`**: Static files (favicons, images).
 - **`docs/`**: User documentation.
   - `USER_GUIDE.md`: Comprehensive user manual.
-- **`specs/`**: Project specifications and task tracking.
-  - `shared-account-optimization/`: Documentation for recent shared account features.
 - **`CHANGELOG.md`**: Project revision history.
 - **`deployment_summary.md`**: Summary of recent deployments and testing instructions.
 - **`next.config.ts`**: Next.js configuration.
@@ -48,3 +46,4 @@ The main application code resides in the `app/` directory (which is also the Git
 Files located one level up (`../`) which control agent behavior:
 - **`CLAUDE.md`**: Agent workflow protocols.
 - **`rules/`**: Coding standards.
+- **`specs/`**: Project specifications and task tracking.
