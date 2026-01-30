@@ -16,8 +16,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Explicitly copy schema (debug)
-COPY prisma/schema.prisma ./prisma/
+# Debug: List copied files
+RUN find /app -maxdepth 3
+
+# Explicitly copy schema to ensure it's there (redundant if COPY . . works but safe)
+# COPY prisma/schema.prisma ./prisma/
 
 # 设置环境变量，确保 Prisma 生成正确的 schema
 ENV DATABASE_URL="file:./dev.db"

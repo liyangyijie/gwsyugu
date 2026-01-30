@@ -8,10 +8,7 @@ build-for-vps.sh
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-dev.db
-dev.db-journal
-prisma/dev.db
-prisma/dev.db-journal
-!prisma/schema.prisma
+*.db
+*.db-journal
 .env*
 !*.env.example
