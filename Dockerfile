@@ -20,7 +20,8 @@ COPY . .
 ENV DATABASE_URL="file:./dev.db"
 
 # 生成 Prisma Client (Linux musl 版本)
-RUN npx prisma generate
+# 显式指定 schema 路径，避免 prisma.config.js 干扰
+RUN ls -la /app/prisma && npx prisma generate --schema=./prisma/schema.prisma
 
 # 优化 Node.js 内存限制
 ENV NODE_OPTIONS="--max-old-space-size=2048"
