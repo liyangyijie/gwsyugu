@@ -241,7 +241,7 @@ export async function getPotentialParents(currentUnitId: number) {
 export async function deleteUnit(id: number) {
     try {
         await prisma.$transaction(async (tx) => {
-            // Delete Transactions first (Foreign Key constraints usually, though Prisma handles relations if configured, explicit is safer here for clarity)
+            // Delete Transactions first
             await tx.accountTransaction.deleteMany({
                 where: { unitId: id }
             })
@@ -249,6 +249,17 @@ export async function deleteUnit(id: number) {
             // Delete Readings
             await tx.meterReading.deleteMany({
                 where: { unitId: id }
+            })
+
+            // Delete Prediction
+            await tx.unitPrediction.deleteMany({
+                where: { unitId: id }
+            })
+
+            // Unlink Children (Set parentUnitId to null)
+            await tx.unit.updateMany({
+                where: { parentUnitId: id },
+                data: { parentUnitId: null }
             })
 
             // Delete Unit
@@ -277,7 +288,19 @@ export async function deleteUnits(ids: number[]) {
             await tx.meterReading.deleteMany({
                 where: { unitId: { in: ids } }
             })
-            // 3. Delete Units
+
+            // 3. Delete Predictions
+            await tx.unitPrediction.deleteMany({
+                where: { unitId: { in: ids } }
+            })
+
+            // 4. Unlink Children
+            await tx.unit.updateMany({
+                where: { parentUnitId: { in: ids } },
+                data: { parentUnitId: null }
+            })
+
+            // 5. Delete Units
             await tx.unit.deleteMany({
                 where: { id: { in: ids } }
             })

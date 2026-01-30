@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 - **Shared Account Arrears**: Fixed a bug where child units in shared accounts were incorrectly shown as "in arrears" on the dashboard even if the parent account had sufficient funds.
 - **Transaction Refund**: Fixed a critical bug in `deleteReading` and `updateReading` where refunds were credited to the child unit instead of the paying parent unit, causing balance corruption.
 - **UI Components**: Fixed `Statistic` component style props to be compatible with Ant Design 5 (replaced `styles` with `valueStyle`), resolving console errors and styling issues.
+- **Unit Deletion**: Fixed foreign key constraint errors when deleting units by cleaning up associated predictions and unlinking child units.
+- **Reading Entry**: Fixed a `ReferenceError` when saving readings by optimizing unit data fetching scope.
 
 ## [2026-01-29] Shared Account Optimization & Export Enhancements
 

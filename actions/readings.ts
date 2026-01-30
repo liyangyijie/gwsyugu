@@ -34,6 +34,12 @@ export async function saveMeterReading(data: {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Fetch Unit Info (Top-level scope to avoid ReferenceError)
+      const unit = await tx.unit.findUniqueOrThrow({
+        where: { id: unitId },
+        include: { parentUnit: true }
+      })
+
       // 1. Find Previous Reading (closest before this date)
       const prevReading = await tx.meterReading.findFirst({
         where: {
@@ -53,11 +59,7 @@ export async function saveMeterReading(data: {
         // For now, allow it but warn? Or strictly:
         if (heatUsage < 0) heatUsage = 0
 
-        // Calculate Cost
-        const unit = await tx.unit.findUniqueOrThrow({
-            where: { id: unitId },
-            include: { parentUnit: true }
-        })
+        // Calculate Cost (Using top-level unit)
         costAmount = heatUsage * Number(unit.unitPrice)
       }
 
@@ -77,14 +79,6 @@ export async function saveMeterReading(data: {
 
       // 3. Billing Logic
       if (costAmount > 0) {
-        // Fetch unit again to be safe if not fetched in block above (though it should be if cost > 0)
-        // Optimization: We fetched it above if prevReading exists.
-        // If prevReading didn't exist, costAmount is 0. So we are safe.
-        // But TS might complain about 'unit' scope if I used 'const' inside block.
-        // I'll fetch it here to be robust or rely on scope.
-        // Actually, let's fetch it cleanly to avoid scope issues or just use the logic:
-        const unit = await tx.unit.findUniqueOrThrow({ where: { id: unitId } })
-
         const billingUnitId = unit.parentUnitId ? unit.parentUnitId : unit.id
 
         // Deduct from Balance
