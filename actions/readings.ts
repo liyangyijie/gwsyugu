@@ -77,6 +77,14 @@ export async function saveMeterReading(data: {
 
       // 3. Billing Logic
       if (costAmount > 0) {
+        // Fetch unit again to be safe if not fetched in block above (though it should be if cost > 0)
+        // Optimization: We fetched it above if prevReading exists.
+        // If prevReading didn't exist, costAmount is 0. So we are safe.
+        // But TS might complain about 'unit' scope if I used 'const' inside block.
+        // I'll fetch it here to be robust or rely on scope.
+        // Actually, let's fetch it cleanly to avoid scope issues or just use the logic:
+        const unit = await tx.unit.findUniqueOrThrow({ where: { id: unitId } })
+
         const billingUnitId = unit.parentUnitId ? unit.parentUnitId : unit.id
 
         // Deduct from Balance
@@ -146,11 +154,15 @@ export async function deleteReading(readingId: number) {
 
             // Revert Balance
             if (transaction) {
+                // BUG FIX: Refund the transaction's owner (which might be parent), NOT the reading's unit.
+                const refundUnitId = transaction.unitId;
+
                 await tx.unit.update({
-                    where: { id: reading.unitId },
+                    where: { id: refundUnitId },
                     data: { accountBalance: { increment: Math.abs(Number(transaction.amount)) } } // Revert deduction (add back)
                 })
-                await updatePaymentGroupStatus(tx, reading.unitId)
+
+                await updatePaymentGroupStatus(tx, refundUnitId)
                 await tx.accountTransaction.delete({ where: { id: transaction.id } })
             }
 
@@ -190,11 +202,15 @@ export async function updateReading(readingId: number, data: { readingValue: num
             // 1. Revert Old Transaction
             const oldTx = await tx.accountTransaction.findFirst({ where: { relatedReadingId: readingId } })
             if (oldTx) {
+                // BUG FIX: Refund the transaction's owner
+                const refundUnitId = oldTx.unitId;
+
                 await tx.unit.update({
-                    where: { id: reading.unitId },
+                    where: { id: refundUnitId },
                     data: { accountBalance: { increment: Math.abs(Number(oldTx.amount)) } }
                 })
-                await updatePaymentGroupStatus(tx, reading.unitId)
+
+                await updatePaymentGroupStatus(tx, refundUnitId)
                 await tx.accountTransaction.delete({ where: { id: oldTx.id } })
             }
 
@@ -231,12 +247,6 @@ export async function updateReading(readingId: number, data: { readingValue: num
 
             // 4. Create New Transaction
             if (costAmount > 0) {
-                // Need to re-fetch unit if not fetched above (in case heatUsage was 0 before but now >0, unlikely as we only enter if prevReading)
-                // Actually `unit` variable scope is inside `if (prevReading)`.
-                // If `prevReading` is false (first reading), heatUsage is 0, costAmount is 0.
-                // So we only care if costAmount > 0, which implies unit was fetched.
-                // But wait, `unit` is scoped.
-                // Let's refetch unit for billing if needed.
                 const unitForBilling = await tx.unit.findUnique({ where: { id: reading.unitId }, include: { parentUnit: true } })
                 if (!unitForBilling) throw new Error('Unit not found')
 

@@ -28,8 +28,7 @@ export default async function DashboardPage() {
                             title="总账户余额"
                             value={stats.totalBalance}
                             precision={2}
-                            // @ts-expect-error Ant Design styles prop issue
-                            styles={{ content: { color: stats.totalBalance >= 0 ? '#3f8600' : '#cf1322' } }}
+                            valueStyle={{ color: stats.totalBalance >= 0 ? '#3f8600' : '#cf1322' }}
                             prefix={<BankOutlined />}
                             suffix="元"
                         />
@@ -50,8 +49,7 @@ export default async function DashboardPage() {
                         <Statistic
                             title="欠费单位"
                             value={stats.arrearsCount}
-                            // @ts-expect-error Ant Design styles prop issue
-                            styles={{ content: { color: '#cf1322' } }}
+                            valueStyle={{ color: '#cf1322' }}
                             prefix={<WarningOutlined />}
                             suffix="家"
                         />
@@ -63,8 +61,7 @@ export default async function DashboardPage() {
                             title="欠费总额"
                             value={stats.arrearsAmount}
                             precision={2}
-                            // @ts-expect-error Ant Design styles prop issue
-                            styles={{ content: { color: '#cf1322' } }}
+                            valueStyle={{ color: '#cf1322' }}
                             prefix={<WalletOutlined />}
                             suffix="元"
                         />

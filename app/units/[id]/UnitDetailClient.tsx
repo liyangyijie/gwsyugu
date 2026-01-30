@@ -122,31 +122,27 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                         value={Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance).toFixed(2)}
                         prefix={<WalletOutlined />}
                         suffix={unit.parentUnit ? <span className="text-xs text-gray-500 ml-2 block md:inline">(共用: {unit.parentUnit.name})</span> : "元"}
-                        // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { color: Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance) < 0 ? '#cf1322' : '#3f8600', fontSize: isMobile ? '1.2rem' : undefined } }}
+                        valueStyle={{ color: Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance) < 0 ? '#cf1322' : '#3f8600', fontSize: isMobile ? '1.2rem' : undefined }}
                     />
                     <Statistic
                         title="供暖时长"
                         value={heatingDays}
                         prefix={<FireOutlined />}
                         suffix="天"
-                        // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { fontSize: isMobile ? '1.2rem' : undefined } }}
+                        valueStyle={{ fontSize: isMobile ? '1.2rem' : undefined }}
                     />
                     <Statistic
                         title="预计可用至"
                         value={prediction?.estimatedDate || '-'}
                         prefix={<CalendarOutlined />}
-                        // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { fontSize: isMobile ? '1rem' : '1.2rem' } }}
+                        valueStyle={{ fontSize: isMobile ? '1rem' : '1.2rem' }}
                     />
                     <Statistic
                         title="剩余天数"
                         value={prediction?.remainingDays ?? '-'}
                         prefix={<ClockCircleOutlined />}
                         suffix="天"
-                        // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { fontSize: isMobile ? '1.2rem' : undefined } }}
+                        valueStyle={{ fontSize: isMobile ? '1.2rem' : undefined }}
                     />
                 </div>
             </div>

@@ -59,7 +59,7 @@ export default function FinancialTab({ unit, transactions }: { unit: any, transa
                             title={isShared ? `当前账户余额 (共用: ${unit.parentUnit.name})` : "当前账户余额"}
                             value={effectiveBalance}
                             precision={2}
-                            styles={{ content: { color: Number(effectiveBalance) < 0 ? '#cf1322' : '#3f8600' } }}
+                            valueStyle={{ color: Number(effectiveBalance) < 0 ? '#cf1322' : '#3f8600' }}
                             suffix="元"
                         />
                         <Button type="primary" className="mt-4 w-full" onClick={() => setActionType('recharge')}>预付款充值</Button>
