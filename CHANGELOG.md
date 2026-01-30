@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - **UI Components**: Fixed `Statistic` component style props to be compatible with Ant Design 5 (replaced `styles` with `valueStyle`), resolving console errors and styling issues.
 - **Unit Deletion**: Fixed foreign key constraint errors when deleting units by cleaning up associated predictions and unlinking child units.
 - **Reading Entry**: Fixed a `ReferenceError` when saving readings by optimizing unit data fetching scope.
+- **Shared Account Warning**: Fixed a bug where child units in shared accounts displayed stale prediction warnings (interpretable as arrears) on the dashboard, by forcing the use of the parent unit's prediction data.
 
 ## [2026-01-29] Shared Account Optimization & Export Enhancements
 

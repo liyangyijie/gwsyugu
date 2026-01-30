@@ -6,7 +6,11 @@ export async function getDashboardStats() {
         const units = await prisma.unit.findMany({
             include: {
                 prediction: true,
-                parentUnit: true
+                parentUnit: {
+                    include: {
+                        prediction: true
+                    }
+                }
             }
         })
         let totalBalance = 0
@@ -58,11 +62,15 @@ export async function getDashboardStats() {
                 arrearsCount++
             }
 
-            if (u.prediction) {
+            // Prediction Warning Logic
+            // For Child units, prefer Parent's prediction data if available
+            // This ensures shared accounts show consistent warnings
+            const predictionSource = (u.parentUnit && u.parentUnit.prediction) ? u.parentUnit.prediction : u.prediction;
+
+            if (predictionSource) {
                 try {
-                    const predData = JSON.parse(u.prediction.data)
-                    // Warning threshold: less than 15 days? Or 30?
-                    // Let's say 30 days is warning.
+                    const predData = JSON.parse(predictionSource.data)
+                    // Warning threshold: less than 30 days
                     if (predData.remainingDays < 30) {
                         warningUnits.push({
                             id: u.id,
