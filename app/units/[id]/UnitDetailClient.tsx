@@ -1,6 +1,6 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Tabs, Descriptions, Tag, Button, Statistic, Modal, Form, Input, InputNumber, message, Select } from 'antd';
+import { Tabs, Descriptions, Tag, Button, Statistic, Modal, Form, Input, InputNumber, message, Select, Grid } from 'antd';
 import { EditOutlined, FireOutlined, ClockCircleOutlined, CalendarOutlined, WalletOutlined } from '@ant-design/icons';
 import ReadingsTab from '../../components/unit/ReadingsTab';
 import FinancialTab from '../../components/unit/FinancialTab';
@@ -10,12 +10,17 @@ import { getPrediction } from '@/actions/prediction';
 import { updateUnit, getPotentialParents } from '@/actions/unit';
 import dayjs from 'dayjs';
 
+const { useBreakpoint } = Grid;
+
 export default function UnitDetailClient({ unit }: { unit: any }) {
     const [prediction, setPrediction] = useState<any>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [potentialParents, setPotentialParents] = useState<any[]>([]);
     const [editForm] = Form.useForm();
     const [messageApi, contextHolder] = message.useMessage();
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     // Calculate Heating Duration
     const readings = unit.readings || [];
@@ -66,14 +71,14 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
             key: 'info',
             label: '基本信息',
             children: (
-                <Descriptions bordered column={2} className="mt-4">
+                <Descriptions bordered column={isMobile ? 1 : 2} className="mt-4">
                     <Descriptions.Item label="单位名称">{unit.name}</Descriptions.Item>
                     <Descriptions.Item label="编号">{unit.code || '-'}</Descriptions.Item>
                     <Descriptions.Item label="单价">{Number(unit.unitPrice).toFixed(2)} 元/GJ</Descriptions.Item>
                     <Descriptions.Item label="建筑面积">{unit.area || '-'} ㎡</Descriptions.Item>
                     <Descriptions.Item label="联系信息">{unit.contactInfo || '-'}</Descriptions.Item>
                     <Descriptions.Item label="创建时间">{new Date(unit.createdAt).toLocaleDateString()}</Descriptions.Item>
-                    <Descriptions.Item label="备注" span={2}>{unit.remarks || '-'}</Descriptions.Item>
+                    <Descriptions.Item label="备注" span={isMobile ? 1 : 2}>{unit.remarks || '-'}</Descriptions.Item>
                 </Descriptions>
             )
         }
@@ -83,10 +88,10 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
         <div className="space-y-6">
             {contextHolder}
             {/* Header / Top Card */}
-            <div className="bg-white p-6 rounded-lg shadow-sm">
-                <div className="flex justify-between items-start mb-6 border-b pb-4">
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                <div className={`flex ${isMobile ? 'flex-col gap-4' : 'justify-between items-start'} mb-6 border-b pb-4`}>
                     <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-3">
+                        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-3 flex-wrap">
                             {unit.name}
                             {Number(unit.accountBalance) < 0 ? <Tag color="red">欠费</Tag> : <Tag color="green">正常</Tag>}
                         </h1>
@@ -108,7 +113,7 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                             }
                         });
                         setIsEditModalOpen(true);
-                    }}>修改信息</Button>
+                    }} block={isMobile}>修改信息</Button>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -116,39 +121,55 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
                         title="当前余额"
                         value={Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance).toFixed(2)}
                         prefix={<WalletOutlined />}
-                        suffix={unit.parentUnit ? <span className="text-xs text-gray-500 ml-2">(共用: {unit.parentUnit.name})</span> : "元"}
+                        suffix={unit.parentUnit ? <span className="text-xs text-gray-500 ml-2 block md:inline">(共用: {unit.parentUnit.name})</span> : "元"}
                         // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { color: Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance) < 0 ? '#cf1322' : '#3f8600' } }}
+                        styles={{ content: { color: Number(unit.parentUnit ? unit.parentUnit.accountBalance : unit.accountBalance) < 0 ? '#cf1322' : '#3f8600', fontSize: isMobile ? '1.2rem' : undefined } }}
                     />
                     <Statistic
                         title="供暖时长"
                         value={heatingDays}
                         prefix={<FireOutlined />}
                         suffix="天"
+                        // @ts-expect-error Ant Design styles prop issue
+                        styles={{ content: { fontSize: isMobile ? '1.2rem' : undefined } }}
                     />
                     <Statistic
                         title="预计可用至"
                         value={prediction?.estimatedDate || '-'}
                         prefix={<CalendarOutlined />}
                         // @ts-expect-error Ant Design styles prop issue
-                        styles={{ content: { fontSize: '1.2rem' } }}
+                        styles={{ content: { fontSize: isMobile ? '1rem' : '1.2rem' } }}
                     />
                     <Statistic
                         title="剩余天数"
                         value={prediction?.remainingDays ?? '-'}
                         prefix={<ClockCircleOutlined />}
                         suffix="天"
+                        // @ts-expect-error Ant Design styles prop issue
+                        styles={{ content: { fontSize: isMobile ? '1.2rem' : undefined } }}
                     />
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="bg-white p-6 rounded-lg shadow-sm">
-                <Tabs defaultActiveKey="readings" items={items} type="card" />
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm overflow-hidden">
+                <Tabs
+                    defaultActiveKey="readings"
+                    items={items}
+                    type={isMobile ? "line" : "card"}
+                    className="overflow-x-auto"
+                />
             </div>
 
             {/* Edit Modal */}
-            <Modal title="修改单位信息" open={isEditModalOpen} onCancel={() => setIsEditModalOpen(false)} onOk={editForm.submit}>
+            <Modal
+                title="修改单位信息"
+                open={isEditModalOpen}
+                onCancel={() => setIsEditModalOpen(false)}
+                onOk={editForm.submit}
+                width={isMobile ? '95%' : 520}
+                style={{ top: isMobile ? 20 : 100 }}
+            >
                 <Form form={editForm} onFinish={handleEdit} layout="vertical">
                     <Form.Item name="name" label="单位名称" rules={[{ required: true }]}>
                         <Input />

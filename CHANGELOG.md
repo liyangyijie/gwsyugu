@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2026-01-30] Mobile Optimization & Security
+
+### Added
+- **Mobile Responsive Layout**: Implemented Drawer navigation for mobile/tablet devices using `MainLayout`.
+- **Card View for Mobile**: Unit list switches to card view on small screens for better readability.
+- **Responsive Dashboard**: Optimized statistic grids and charts for mobile view.
+- **Mobile Details View**: Adjusted Unit Detail page to stack information and allow scrolling tabs on mobile.
+- **Password Protection**: Implemented site-wide password protection using `jose` and Middleware (configure via `PASSWORD` env var).
+
 ## [2026-01-29] Shared Account Optimization & Export Enhancements
 
 ### Added

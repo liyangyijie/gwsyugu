@@ -1,6 +1,6 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Table, Tag, Button, Input, Modal, Form, InputNumber, DatePicker, message, Popconfirm } from 'antd';
+import { Table, Tag, Button, Input, Modal, Form, InputNumber, DatePicker, message, Popconfirm, Grid, Card } from 'antd';
 import { PlusOutlined, SearchOutlined, FormOutlined, DeleteOutlined, CalculatorOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,11 +9,16 @@ import { saveMeterReading } from '@/actions/readings';
 import { calculateBatchParams } from '@/actions/prediction';
 import dayjs from 'dayjs';
 
+const { useBreakpoint } = Grid;
+
 export default function UnitList({ units }: { units: any[] }) {
     const router = useRouter();
     const [searchText, setSearchText] = useState('');
     const [messageApi, contextHolder] = message.useMessage();
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     // Create Modal State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -78,7 +83,6 @@ export default function UnitList({ units }: { units: any[] }) {
     };
 
     const openReadingModal = (unit: any) => {
-        // ... (existing)
         setSelectedUnit(unit);
         readingForm.resetFields();
         readingForm.setFieldsValue({
@@ -211,13 +215,57 @@ export default function UnitList({ units }: { units: any[] }) {
         }
     };
 
+    // Render logic for Mobile Card View
+    const renderMobileCards = () => (
+        <div className="grid grid-cols-1 gap-4">
+            {filteredUnits.map(unit => (
+                <Card
+                    key={unit.id}
+                    title={
+                        <div className="flex justify-between items-center">
+                            <span onClick={() => router.push(`/units/${unit.id}`)} className="text-blue-600 font-medium cursor-pointer">
+                                {unit.name}
+                            </span>
+                            {Number(unit.accountBalance) < 0 ? <Tag color="red">欠费</Tag> : <Tag color="green">正常</Tag>}
+                        </div>
+                    }
+                    size="small"
+                    className={Number(unit.accountBalance) < 0 ? 'bg-red-50 border-red-100' : ''}
+                    actions={[
+                        <Button type="text" size="small" icon={<FormOutlined />} onClick={() => openReadingModal(unit)} key="read">抄表</Button>,
+                        <Popconfirm
+                            key="del"
+                            title="确定删除?"
+                            onConfirm={() => handleDeleteUnit(unit.id)}
+                            okText="是"
+                            cancelText="否"
+                        >
+                            <Button type="text" danger size="small" icon={<DeleteOutlined />}>删除</Button>
+                        </Popconfirm>
+                    ]}
+                >
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-500">余额:</span>
+                        <span className={`font-bold ${Number(unit.accountBalance) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {Number(unit.accountBalance).toFixed(2)} 元
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-500">单价:</span>
+                        <span>{Number(unit.unitPrice).toFixed(2)} 元/GJ</span>
+                    </div>
+                </Card>
+            ))}
+        </div>
+    );
+
     return (
-        <div className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
+        <div className="space-y-4 bg-white p-4 md:p-6 rounded-lg shadow-sm">
             {contextHolder}
-            <div className="flex justify-between items-center mb-4">
+            <div className={`flex ${isMobile ? 'flex-col gap-3' : 'justify-between items-center'} mb-4`}>
                 <h2 className="text-xl font-bold">单位管理</h2>
-                <div className="flex gap-2 items-center">
-                    {hasSelected && (
+                <div className={`flex gap-2 items-center ${isMobile ? 'w-full flex-wrap' : ''}`}>
+                    {hasSelected && !isMobile && (
                         <div className="flex gap-2 mr-4 bg-gray-50 p-1 rounded border border-gray-200">
                             <span className="px-2 text-sm text-gray-500 self-center">已选 {selectedRowKeys.length} 项</span>
                             <Popconfirm title="确定删除选中单位?" onConfirm={handleBatchDelete} okText="确定" cancelText="取消">
@@ -229,27 +277,37 @@ export default function UnitList({ units }: { units: any[] }) {
                     <Input
                         placeholder="搜索单位名称"
                         prefix={<SearchOutlined />}
-                        style={{ width: 200 }}
+                        style={{ width: isMobile ? '100%' : 200 }}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
                     />
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateModalOpen(true)}>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateModalOpen(true)} className={isMobile ? 'w-full' : ''}>
                         添加单位
                     </Button>
                 </div>
             </div>
 
-            <Table
-                rowSelection={rowSelection}
-                dataSource={filteredUnits}
-                columns={columns}
-                rowKey="id"
-                rowClassName={(record) => Number(record.accountBalance) < 0 ? 'bg-red-50' : ''}
-                pagination={{ pageSize: 10 }}
-            />
+            {isMobile ? renderMobileCards() : (
+                <Table
+                    rowSelection={rowSelection}
+                    dataSource={filteredUnits}
+                    columns={columns}
+                    rowKey="id"
+                    rowClassName={(record) => Number(record.accountBalance) < 0 ? 'bg-red-50' : ''}
+                    pagination={{ pageSize: 10, size: 'small' }}
+                    scroll={{ x: true }}
+                />
+            )}
 
             {/* Create Unit Modal */}
-            <Modal title="添加新单位" open={isCreateModalOpen} onCancel={() => setIsCreateModalOpen(false)} onOk={createForm.submit}>
+            <Modal
+                title="添加新单位"
+                open={isCreateModalOpen}
+                onCancel={() => setIsCreateModalOpen(false)}
+                onOk={createForm.submit}
+                width={isMobile ? '95%' : 520}
+                style={{ top: isMobile ? 20 : 100 }}
+            >
                 <Form form={createForm} onFinish={handleCreate} layout="vertical">
                     <Form.Item name="name" label="单位名称" rules={[{ required: true, message: '请输入单位名称' }]}>
                         <Input placeholder="例如：xx小区" />
@@ -276,6 +334,8 @@ export default function UnitList({ units }: { units: any[] }) {
                 onCancel={() => setIsReadingModalOpen(false)}
                 onOk={readingForm.submit}
                 confirmLoading={loading}
+                width={isMobile ? '95%' : 520}
+                style={{ top: isMobile ? 20 : 100 }}
             >
                 <Form form={readingForm} onFinish={handleSaveReading} layout="vertical">
                     <Form.Item name="readingDate" label="抄表日期" initialValue={dayjs()} rules={[{ required: true }]}>

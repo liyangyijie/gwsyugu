@@ -21,8 +21,8 @@ export default async function DashboardPage() {
                 />
             )}
 
-            <Row gutter={16}>
-                <Col span={6}>
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={12} lg={6}>
                     <Card variant="borderless" className="shadow-sm hover:shadow-md transition-all">
                         <Statistic
                             title="总账户余额"
@@ -35,7 +35,7 @@ export default async function DashboardPage() {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} md={12} lg={6}>
                     <Card variant="borderless" className="shadow-sm hover:shadow-md transition-all">
                         <Statistic
                             title="单位总数"
@@ -45,7 +45,7 @@ export default async function DashboardPage() {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} md={12} lg={6}>
                     <Card variant="borderless" className="shadow-sm hover:shadow-md transition-all">
                         <Statistic
                             title="欠费单位"
@@ -57,7 +57,7 @@ export default async function DashboardPage() {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} md={12} lg={6}>
                     <Card variant="borderless" className="shadow-sm hover:shadow-md transition-all">
                         <Statistic
                             title="欠费总额"
