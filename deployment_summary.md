@@ -1,6 +1,6 @@
 # Deployment Summary - Shared Account Optimization & Unit Management
 
-**Date:** 2026-01-29
+**Date:** 2026-01-30
 **Branch:** main
 
 ## 1. Overview
@@ -12,6 +12,7 @@ This deployment introduces a robust system for handling **Shared Capital Account
 - **Cascading Status**: If a Parent unit goes into arrears, all linked Child units are automatically marked as `ARREARS`.
 - **Aggregated Prediction**: The usage prediction model now sums up the daily costs of the Parent and *all* its Children to estimate the "Days Left" for the shared account.
 - **Import Validation**: The Excel import process now strictly enforces a max depth of 1 (Parent -> Child only) and aggregates Child `initialBalance` into the Parent.
+- **Import Billing**: Fixed a bug where imported readings for Child units were billed to the Child instead of the Parent. Now correctly bills the Parent unit.
 
 ### B. Unit Management (Optimization)
 - **Dynamic Linking**: Admins can now link/unlink a unit to a Parent via the "Edit Unit" modal.
@@ -31,7 +32,7 @@ This deployment introduces a robust system for handling **Shared Capital Account
 ### Backend
 - `app/actions/transactions.ts`: Added `updatePaymentGroupStatus` helper.
 - `app/actions/readings.ts`: Integrated status cascading into reading updates.
-- `app/actions/data-management.ts`: Enhanced `importUnits`, added `getReadingsForExport`, and updated `getAllUnitsForExport`.
+- `app/actions/data-management.ts`: Enhanced `importUnits`, added `getReadingsForExport`, updated `getAllUnitsForExport`, and fixed import billing logic for shared accounts.
 - `app/actions/prediction.ts`: Updated algorithm to aggregate group costs.
 - `app/actions/unit.ts`: Updated `updateUnit` for parent linking/unlinking and fund transfer transactions. Added `getPotentialParents`.
 
