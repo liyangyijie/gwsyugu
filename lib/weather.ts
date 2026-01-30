@@ -71,7 +71,7 @@ export async function fetchWeather(lat?: number, lon?: number, days: number = 7,
                         minTemp: min,
                         maxTemp: max
                     }
-                }).filter((x) => x !== null)
+                }).filter((x: any) => x !== null)
 
                 // Save to DB
                 for (const w of upserts) {

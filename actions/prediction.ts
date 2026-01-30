@@ -135,7 +135,7 @@ export async function calculateUnitParams(unitId: number) {
 import { getCitySetting } from './settings'
 
 
-export async function getPrediction(unitId: number, forceRefresh: boolean = false) {
+export async function getPrediction(unitId: number, forceRefresh: boolean = false): Promise<any> {
   try {
     // 1. Get Unit Params
     const unit = await prisma.unit.findUnique({

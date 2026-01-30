@@ -33,7 +33,7 @@ export default function UnitDetailClient({ unit }: { unit: any }) {
 
     useEffect(() => {
         // Fetch simple prediction for header
-        getPrediction(unit.id).then(res => {
+        getPrediction(unit.id).then((res: any) => {
             if (res.success) {
                 setPrediction(res.data);
             }

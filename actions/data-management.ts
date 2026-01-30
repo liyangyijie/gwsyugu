@@ -235,6 +235,7 @@ export async function importReadings(readingsData: ImportReadingData[]) {
                 if (heatUsage < 0) heatUsage = 0
                 // Re-fetch unit inside transaction to get latest price/balance
                 const currentUnit = await tx.unit.findUnique({ where: { id: unit.id } })
+                if (!currentUnit) throw new Error('Unit not found during transaction')
                 costAmount = heatUsage * Number(currentUnit.unitPrice)
             }
 
