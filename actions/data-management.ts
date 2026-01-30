@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { updatePaymentGroupStatus } from './transactions'
 
 interface ImportUnitData {
   name: string
@@ -255,28 +256,32 @@ export async function importReadings(readingsData: ImportReadingData[]) {
 
             // 3. Billing Logic
             if (costAmount > 0) {
+                // Determine Billing Unit (Parent or Self)
+                const currentUnit = await tx.unit.findUnique({ where: { id: unit.id } })
+                if (!currentUnit) throw new Error('Unit not found')
+
+                const billingUnitId = currentUnit.parentUnitId ? currentUnit.parentUnitId : currentUnit.id
+
                 const updatedUnit = await tx.unit.update({
-                    where: { id: unit.id },
+                    where: { id: billingUnitId },
                     data: {
                         accountBalance: { decrement: costAmount },
                     },
                 })
 
-                // Update Status if negative
-                if (Number(updatedUnit.accountBalance) < 0) {
-                    await tx.unit.update({ where: { id: unit.id }, data: { status: 'ARREARS' } })
-                }
+                // Update Status (Cascade)
+                await updatePaymentGroupStatus(tx, billingUnitId)
 
                 // Create Transaction
                 await tx.accountTransaction.create({
                     data: {
-                        unitId: unit.id,
+                        unitId: billingUnitId,
                         type: 'DEDUCTION',
                         amount: -costAmount,
                         balanceAfter: updatedUnit.accountBalance,
                         summary: `${readingDate.toISOString().slice(0, 10)} 抄表扣费 (导入)`,
                         relatedReadingId: reading.id,
-                        remarks: `用量: ${heatUsage.toFixed(2)} GJ`,
+                        remarks: currentUnit.parentUnitId ? `来源: ${currentUnit.name} (用量: ${heatUsage.toFixed(2)} GJ)` : `用量: ${heatUsage.toFixed(2)} GJ`,
                     },
                 })
 

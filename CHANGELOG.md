@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - **Unit Deletion**: Fixed foreign key constraint errors when deleting units by cleaning up associated predictions and unlinking child units.
 - **Reading Entry**: Fixed a `ReferenceError` when saving readings by optimizing unit data fetching scope.
 - **Shared Account Warning**: Fixed a bug where child units in shared accounts displayed stale prediction warnings (interpretable as arrears) on the dashboard, by forcing the use of the parent unit's prediction data.
+- **Import Billing**: Fixed a critical bug in `importReadings` where shared account logic was ignored, causing child units to be billed directly instead of the parent.
 
 ## [2026-01-29] Shared Account Optimization & Export Enhancements
 
