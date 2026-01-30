@@ -26,13 +26,17 @@ The main application code resides in the `app/` directory (which is also the Git
   - **`dashboard/`**: Main dashboard (`page.tsx`) and actions (`DashboardActions.tsx`).
   - **`units/`**: Unit management.
     - `[id]/`: Individual unit details (`UnitDetailClient.tsx`).
+  - **`financial/`**: Financial transaction history.
   - **`settings/`**: System settings (`page.tsx`), Import/Export UI.
+  - **`login/`**: Login page (Password protection).
   - **`api/`**: API Routes (e.g., for file downloads).
 - **`components/`**: Reusable React components.
   - `unit/`: Unit-specific components (`FinancialTab.tsx`, `PredictionTab.tsx`).
 
 ### 📂 Configuration & Assets
 - **`public/`**: Static files (favicons, images).
+- **`docs/`**: User documentation.
+  - `USER_GUIDE.md`: Comprehensive user manual.
 - **`specs/`**: Project specifications and task tracking.
   - `shared-account-optimization/`: Documentation for recent shared account features.
 - **`CHANGELOG.md`**: Project revision history.
