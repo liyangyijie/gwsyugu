@@ -49,11 +49,20 @@ fi
 if [ -d "$APP_DIR" ]; then
     echo "📂 更新代码..."
     cd "$APP_DIR"
-    git pull
+    # 强制重置代码以确保与远程一致 (修复本地文件缺失或冲突)
+    git fetch --all
+    git reset --hard origin/main
 else
     echo "📂 克隆代码..."
     git clone "$REPO_URL" "$APP_DIR"
     cd "$APP_DIR"
+fi
+
+# 检查关键文件是否存在
+if [ ! -f "prisma/schema.prisma" ]; then
+    echo "❌ 错误: prisma/schema.prisma 文件缺失！请检查仓库内容。"
+    ls -R prisma
+    exit 1
 fi
 
 # 4. 准备环境配置
