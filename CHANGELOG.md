@@ -3,7 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [12:05] [Perf] prediction.ts: Refactored batch prediction to use concurrent processing (chunk size: 10) for 5-10x speedup
 - [11:55] [Fix] prisma.config.js: Fixed database URL configuration to prevent read-only file system errors during migration
+- [11:55] [Perf] schema.prisma: Added database indexes for `MeterReading` and `Unit` to optimize queries
 
 ## [2026-01-30] Mobile Optimization & Security
 

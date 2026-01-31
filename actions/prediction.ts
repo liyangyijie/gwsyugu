@@ -542,19 +542,39 @@ export async function calculateBatchParams(unitIds: number[]) {
         let successCount = 0
         let failCount = 0
 
-        for (const id of unitIds) {
-            // 1. Calculate Params (Physics Model)
-            const res = await calculateUnitParams(id)
-            if (res.success) successCount++
-            else failCount++
+        // Define batch size to control concurrency
+        const BATCH_SIZE = 10;
 
-            // 2. Refresh Prediction Cache (Financial Forecast)
-            // Essential for Dashboard Warnings to update immediately
+        // Helper function to process a single unit
+        const processUnit = async (id: number) => {
+            let unitSuccess = false;
             try {
-                await getPrediction(id, true)
-            } catch {
-                // Ignore prediction errors during batch (e.g. missing params)
+                // 1. Calculate Params (Physics Model)
+                const res = await calculateUnitParams(id)
+                if (res.success) unitSuccess = true;
+
+                // 2. Refresh Prediction Cache (Financial Forecast)
+                // Essential for Dashboard Warnings to update immediately
+                try {
+                    await getPrediction(id, true)
+                } catch {
+                    // Ignore prediction errors during batch (e.g. missing params)
+                }
+            } catch (e) {
+                console.error(`Error processing unit ${id}:`, e);
             }
+            return unitSuccess;
+        };
+
+        // Process in chunks
+        for (let i = 0; i < unitIds.length; i += BATCH_SIZE) {
+            const chunk = unitIds.slice(i, i + BATCH_SIZE);
+            const results = await Promise.all(chunk.map(id => processUnit(id)));
+
+            results.forEach(success => {
+                if (success) successCount++;
+                else failCount++;
+            });
         }
 
         revalidatePath('/units')
