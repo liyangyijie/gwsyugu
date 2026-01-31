@@ -39,6 +39,9 @@ The main application code resides in the `app/` directory (which is also the Git
   - `USER_GUIDE.md`: Comprehensive user manual.
 - **`CHANGELOG.md`**: Project revision history.
 - **`deployment_summary.md`**: Summary of recent deployments and testing instructions.
+- **`deploy-on-vps.sh`**: Automated VPS deployment script (pulls code, migrates DB, restarts Docker).
+- **`build-for-vps.sh`**: Local script to trigger remote deployment.
+- **`Dockerfile`**: Container definition for production deployment.
 - **`next.config.ts`**: Next.js configuration.
 - **`package.json`**: Dependencies and scripts.
 

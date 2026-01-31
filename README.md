@@ -185,38 +185,42 @@ npm run dev
     ```
     *建议使用 PM2 等工具进行进程守护，例如：`pm2 start npm --name "heat-system" -- start`*
 
-### 6. 低内存 VPS 部署指南 (Standalone 模式)
-对于内存较小（如 1G）的 VPS，直接在服务器上编译容易内存溢出。推荐在本地编译后上传运行。
+### 6. 低内存 VPS 部署指南 (自动化 Docker 模式)
 
-#### 1. 本地打包
-在您的开发机（Mac/Windows）上运行项目根目录下的打包脚本：
+我们提供了一键自动化部署脚本，特别优化了低内存 VPS (如 1GB 内存) 的环境，支持**自动创建 Swap**、**自动安装 Docker** 以及**数据库自动迁移**。
+
+#### 1. 配置 IP
+在您的开发机（Mac/Windows）上，打开项目根目录下的 `build-for-vps.sh` 文件，找到 `Configuration` 区域：
+```bash
+# Configuration - 请修改为您的 VPS IP
+VPS_USER="root"
+VPS_HOST="123.45.67.89" # <--- 修改这里为您的 VPS IP
+```
+
+#### 2. 一键部署
+在本地终端执行：
 ```bash
 # 给予执行权限 (仅需一次)
 chmod +x build-for-vps.sh
 
-# 执行打包
+# 执行部署
 ./build-for-vps.sh
 ```
-该脚本会自动：
-*   生成适配 Linux 的数据库引擎
-*   进行独立模式编译 (Standalone)
-*   组装所有必要文件并压缩为 `deploy.tar.gz`
+脚本将自动完成以下操作：
+1.  将最新的部署脚本 (`deploy-on-vps.sh`) 上传到 VPS 的 `/tmp` 目录（防止被 git reset 覆盖）。
+2.  远程触发部署流程：
+    *   检查并自动创建 1GB Swap 内存（防止构建失败）。
+    *   自动安装 Docker（如果未安装）。
+    *   从 GitHub 拉取最新代码。
+    *   **执行数据库迁移**：即使是旧数据库，也会自动应用最新的表结构（如索引优化），确保数据安全且兼容。
+    *   构建并启动 Docker 容器。
 
-#### 2. 上传与运行
-将生成的 `deploy.tar.gz` 上传到 VPS，然后执行：
-```bash
-# 1. 解压
-tar -xzf deploy.tar.gz
-
-# 2. 运行 (自动处理数据库初始化)
-./start.sh
-```
-*   该模式无需在 VPS 上运行 `npm install`。
-*   默认端口为 3000，可在 `start.sh` 中修改。
+#### 3. 验证
+访问 `http://<YOUR_VPS_IP>:3000` 即可使用。
 
 ### 7. 数据迁移与备份
-*   **数据迁移**：如果您需要保留原有的数据，请手动复制原机器上的 `prisma/dev.db` 文件到新部署机器的 `prisma/` 目录下，覆盖新生成的空数据库。
-*   **数据导入**：如果是全新部署，您可以使用系统自带的“Excel 粘贴导入”功能，快速录入历史抄表数据。
+*   **数据持久化**：部署脚本会自动将 VPS 上的 `prisma/dev.db` 文件挂载到容器中。这意味着即使您删除容器或重新部署，**数据也不会丢失**。
+*   **备份**: 定期备份 VPS 上的 `/root/gwsyugu-docker/prisma/dev.db` 文件即可保障数据安全。
 
 ### 8. 安全与维护注意事项 (重要)
 *   **关于 npm audit**: 运行 `npm install` 后可能会看到关于 `lodash` 的漏洞警告。**请勿运行 `npm audit fix --force`**。这会导致 Prisma 降级到旧版本 (6.x)，从而破坏当前项目对 Prisma 7 的配置兼容性，导致无法启动。请保持 Prisma 7.3.0 版本不变。
