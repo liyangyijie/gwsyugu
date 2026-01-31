@@ -34,6 +34,8 @@ model Unit {
   readings        MeterReading[]
   transactions    AccountTransaction[]
   prediction      UnitPrediction?
+
+  @@index([parentUnitId])
 }
 
 model MeterReading {
@@ -52,6 +54,9 @@ model MeterReading {
   unit            Unit     @relation(fields: [unitId], references: [id])
 
   transactions    AccountTransaction[]
+
+  @@index([unitId, readingDate])
+  @@index([isBilled])
 }
 
 model AccountTransaction {

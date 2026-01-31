@@ -5,6 +5,6 @@ module.exports = {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_URL || "file:/app/prisma/dev.db",
+    url: process.env.DATABASE_URL || "file:./prisma/dev.db",
   },
 };

@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [11:55] [Fix] prisma.config.js: Fixed database URL configuration to prevent read-only file system errors during migration
 
 ## [2026-01-30] Mobile Optimization & Security
 
