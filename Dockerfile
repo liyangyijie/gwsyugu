@@ -78,4 +78,6 @@ ENV HOSTNAME="0.0.0.0"
 # 启动脚本：检查数据库并启动
 # 显式导出环境变量 (使用绝对路径)，确保 Prisma migrate 能够读取到
 # ⚠️ 关键逻辑修正：即使 dev.db 存在，也必须运行 migrate deploy 以确保表结构是最新的
+# 注意：prisma.config.js 现在默认fallback到 ./prisma/dev.db，所以只要工作目录正确，无需强制 export 也能工作
+# 但为了保险起见，保持显式 export，与 deploy-on-vps.sh 保持一致
 CMD ["sh", "-c", "export DATABASE_URL=file:/app/prisma/dev.db && echo '🚀 Running migrations...' && npx prisma migrate deploy && echo '✅ Migrations complete.' && node server.js"]

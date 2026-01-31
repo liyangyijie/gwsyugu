@@ -81,6 +81,16 @@ mkdir -p prisma
 echo "🏗️ 开始构建 Docker 镜像 (这可能需要几分钟)..."
 docker build -t gwsyugu:latest .
 
+# 5.5 执行一次性数据库迁移 (解决旧数据库结构不匹配问题)
+# 这一步使用临时容器，挂载宿主机的 prisma 目录，执行 migrate deploy
+# 确保在启动正式应用容器前，宿主机的 dev.db 已经升级到最新结构
+echo "🔄 执行数据库迁移..."
+docker run --rm \
+  -v $(pwd)/prisma:/app/prisma \
+  -e DATABASE_URL="file:/app/prisma/dev.db" \
+  gwsyugu:latest \
+  npx prisma migrate deploy
+
 # 6. 停止并删除旧容器
 if [ "$(docker ps -aq -f name=gwsyugu-app)" ]; then
     echo "🛑 停止旧容器..."
