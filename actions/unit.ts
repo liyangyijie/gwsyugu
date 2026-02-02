@@ -131,6 +131,7 @@ export async function getUnitById(id: number) {
         readings: { orderBy: { readingDate: 'desc' }, take: 20 },
         transactions: { orderBy: { date: 'desc' }, take: 20 },
         parentUnit: true,
+        childUnits: { select: { id: true, name: true } },
       },
     })
     if (!unit) return { success: false, error: 'Unit not found' }

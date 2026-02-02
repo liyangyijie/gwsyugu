@@ -238,7 +238,16 @@ export default function PredictionTab({ unit }: { unit: any }) {
                                     <Tooltip />
                                     <Legend />
                                     <Line yAxisId="left" type="monotone" dataKey="actualHeat" stroke="#1890ff" name="实际用热" strokeWidth={2} dot={true} />
-                                    <Line yAxisId="left" type="monotone" dataKey="predictedHeat" stroke="#52c41a" name="预测用热 (账户合计)" strokeDasharray="5 5" dot={false} />
+                                    <Line
+                                        yAxisId="left"
+                                        type="monotone"
+                                        dataKey="predictedHeat"
+                                        stroke="#52c41a"
+                                        name={prediction.isChild || (unit.childUnits && unit.childUnits.length > 0) ? "预测合计用热" : "预测用热"}
+                                        strokeDasharray="5 5"
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
                                     <Line yAxisId="right" type="monotone" dataKey="temp" stroke="#faad14" name="气温" dot={false} strokeWidth={1} />
                                 </LineChart>
                             </ResponsiveContainer>
