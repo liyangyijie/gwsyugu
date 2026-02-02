@@ -131,6 +131,7 @@ export default function UnitList({ units }: { units: any[] }) {
             title: '单位名称',
             dataIndex: 'name',
             key: 'name',
+            sorter: (a: any, b: any) => a.name.localeCompare(b.name, 'zh-CN'),
             render: (text: string, record: any) => (
                 <a onClick={() => router.push(`/units/${record.id}`)} className="font-medium text-blue-600 hover:text-blue-800">
                     {text}
@@ -141,11 +142,13 @@ export default function UnitList({ units }: { units: any[] }) {
             title: '编号',
             dataIndex: 'code',
             key: 'code',
+            sorter: (a: any, b: any) => (a.code || '').localeCompare(b.code || ''),
         },
         {
             title: '账户余额 (元)',
             dataIndex: 'accountBalance',
             key: 'accountBalance',
+            sorter: (a: any, b: any) => Number(a.accountBalance) - Number(b.accountBalance),
             render: (val: any) => {
                 const num = Number(val);
                 return <span style={{ color: num < 0 ? '#cf1322' : '#3f8600', fontWeight: num < 0 ? 'bold' : 'normal' }}>{num.toFixed(2)}</span>
