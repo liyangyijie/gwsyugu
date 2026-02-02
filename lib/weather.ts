@@ -71,6 +71,7 @@ export async function fetchWeather(lat?: number, lon?: number, days: number = 7,
                         minTemp: min,
                         maxTemp: max
                     }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 }).filter((x: any) => x !== null)
 
                 // Save to DB

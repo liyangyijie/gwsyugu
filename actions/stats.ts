@@ -20,7 +20,7 @@ export async function getDashboardStats() {
         const warningUnits: any[] = []
 
         // Set to track processed parent IDs to avoid double counting balance
-        const processedAccountIds = new Set<number>()
+        // const processedAccountIds = new Set<number>()
 
         units.forEach((u) => {
             // Determine effective balance

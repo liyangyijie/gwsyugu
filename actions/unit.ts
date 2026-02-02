@@ -233,7 +233,7 @@ export async function getPotentialParents(currentUnitId: number) {
       select: { id: true, name: true, code: true }
     })
     return { success: true, data: units }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch parents' }
   }
 }

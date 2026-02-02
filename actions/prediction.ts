@@ -135,6 +135,7 @@ export async function calculateUnitParams(unitId: number) {
 import { getCitySetting } from './settings'
 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getPrediction(unitId: number, forceRefresh: boolean = false): Promise<any> {
   try {
     // 1. Get Unit Params
@@ -234,15 +235,11 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
 
     // Case B: Parent or Standalone
     // Aggregate Params
-    let totalBaseHeat = unit.baseHeat || 0
-    let totalTempCoeff = unit.tempCoeff || 0
     let hasParams = (unit.baseHeat !== null && unit.tempCoeff !== null)
     let incompleteData = false
 
     if (unit.childUnits.length > 0) {
         for (const child of unit.childUnits) {
-            totalBaseHeat += child.baseHeat || 0
-            totalTempCoeff += child.tempCoeff || 0
             if (child.baseHeat !== null) hasParams = true // At least one unit has params
             else incompleteData = true
         }
@@ -304,6 +301,7 @@ export async function getPrediction(unitId: number, forceRefresh: boolean = fals
     weatherData.forEach((w) => tempMap.set(dayjs(w.date).format('YYYY-MM-DD'), w.temp));
 
     // Generate History Points (Dense)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const history: any[] = [];
     let lastDate = start;
 
