@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [15:30] [Fix] PredictionTab.tsx: Updated prediction chart label to "预测用热 (账户合计)" to clarify it includes shared unit usage
+- [15:00] [Refactor] codebase: Fixed all ESLint errors (any types, unused vars) and enabled strict TypeScript build checks
 - [12:15] [Feature] Deployment: Updated deploy-on-vps.sh, Dockerfile, and build-for-vps.sh to support automated git-based deployment and improve safety
 - [12:05] [Perf] prediction.ts: Refactored batch prediction to use concurrent processing (chunk size: 10) for 5-10x speedup
 - [11:55] [Fix] prisma.config.js: Fixed database URL configuration to prevent read-only file system errors during migration
