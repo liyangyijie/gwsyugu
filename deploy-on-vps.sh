@@ -77,6 +77,12 @@ fi
 # 确保 prisma 目录存在 (用于挂载数据库)
 mkdir -p prisma
 
+# 自动修复数据库位置 (防止用户误传到根目录导致数据丢失)
+if [ -f "dev.db" ] && [ ! -f "prisma/dev.db" ]; then
+    echo "⚠️ 检测到 dev.db 在根目录，正在迁移至 prisma/ 目录以确保持久化..."
+    mv dev.db prisma/dev.db
+fi
+
 # 5. 构建镜像 (使用 Dockerfile)
 echo "🏗️ 开始构建 Docker 镜像 (这可能需要几分钟)..."
 docker build -t gwsyugu:latest .
@@ -107,6 +113,7 @@ docker run -d \
   -p 127.0.0.1:$PORT:3000 \
   -v $(pwd)/prisma:/app/prisma \
   -v $(pwd)/.env:/app/.env \
+  -e DATABASE_URL="file:/app/prisma/dev.db" \
   gwsyugu:latest
 
 echo "🎉 部署成功！"

@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [16:15] [Fix] deploy-on-vps.sh: Fixed database persistence issue by forcing `DATABASE_URL` env var and auto-moving `dev.db` to `prisma/` folder
 - [16:00] [Feat] UnitList.tsx: Added client-side sorting for Unit Name, Code, and Account Balance columns in the Unit Management table
 - [15:30] [Fix] PredictionTab.tsx: Updated prediction chart label to "预测用热 (账户合计)" to clarify it includes shared unit usage
 - [15:00] [Refactor] codebase: Fixed all ESLint errors (any types, unused vars) and enabled strict TypeScript build checks
