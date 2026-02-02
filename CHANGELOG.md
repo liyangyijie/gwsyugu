@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [16:45] [Feat] units: Implemented server-side pagination, sorting, and searching for the Unit List to improve performance with large datasets
 - [16:30] [Fix] pages: Forced dynamic rendering for `/units`, `/dashboard`, and `/financial` to prevent stale data issue after deployment (SSG -> SSR)
 - [16:15] [Fix] deploy-on-vps.sh: Fixed database persistence issue by forcing `DATABASE_URL` env var and auto-moving `dev.db` to `prisma/` folder
 - [16:00] [Feat] UnitList.tsx: Added client-side sorting for Unit Name, Code, and Account Balance columns in the Unit Management table

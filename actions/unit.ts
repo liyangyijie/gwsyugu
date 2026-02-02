@@ -81,12 +81,42 @@ export async function createUnit(data: {
   }
 }
 
-export async function getUnits() {
+export async function getUnits(params: {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+} = {}) {
+  const { page = 1, pageSize = 10, query = '', sortField, sortOrder } = params;
+  const skip = (page - 1) * pageSize;
+
+  const where: any = {};
+  if (query) {
+    where.OR = [
+      { name: { contains: query } },
+      { code: { contains: query } }
+    ];
+  }
+
+  const orderBy: any = {};
+  if (sortField && sortOrder) {
+    orderBy[sortField] = sortOrder;
+  } else {
+    orderBy.createdAt = 'desc';
+  }
+
   try {
-    const units = await prisma.unit.findMany({
-      orderBy: { createdAt: 'desc' },
-    })
-    return { success: true, data: units.map(serializeUnit) }
+    const [units, total] = await prisma.$transaction([
+      prisma.unit.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy,
+      }),
+      prisma.unit.count({ where })
+    ])
+    return { success: true, data: units.map(serializeUnit), total, page, pageSize }
   } catch (error) {
     console.error('Failed to fetch units:', error)
     return { success: false, error: 'Failed to fetch units: ' + (error instanceof Error ? error.message : String(error)) }

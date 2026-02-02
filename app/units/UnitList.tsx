@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Table, Tag, Button, Input, Modal, Form, InputNumber, DatePicker, message, Popconfirm, Grid, Card } from 'antd';
 import { PlusOutlined, SearchOutlined, FormOutlined, DeleteOutlined, CalculatorOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUnit, deleteUnit, deleteUnits } from '@/actions/unit';
 import { saveMeterReading } from '@/actions/readings';
@@ -11,9 +11,25 @@ import dayjs from 'dayjs';
 
 const { useBreakpoint } = Grid;
 
-export default function UnitList({ units }: { units: any[] }) {
+export default function UnitList({
+    initialUnits,
+    total,
+    currentPage,
+    pageSize,
+    initialQuery,
+    initialSortField,
+    initialSortOrder
+}: {
+    initialUnits: any[],
+    total: number,
+    currentPage: number,
+    pageSize: number,
+    initialQuery: string,
+    initialSortField?: string,
+    initialSortOrder?: string
+}) {
     const router = useRouter();
-    const [searchText, setSearchText] = useState('');
+    const [searchText, setSearchText] = useState(initialQuery);
     const [messageApi, contextHolder] = message.useMessage();
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
@@ -30,7 +46,8 @@ export default function UnitList({ units }: { units: any[] }) {
     const [selectedUnit, setSelectedUnit] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
-    const filteredUnits = units.filter(u => u.name.includes(searchText));
+    // Server-side filtering
+    // const filteredUnits = units.filter(u => u.name.includes(searchText));
 
     const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
         setSelectedRowKeys(newSelectedRowKeys);
@@ -42,6 +59,27 @@ export default function UnitList({ units }: { units: any[] }) {
     };
 
     const hasSelected = selectedRowKeys.length > 0;
+
+    const handleTableChange = (pagination: any, filters: any, sorter: any) => {
+        const params = new URLSearchParams();
+        if (searchText) params.set('q', searchText);
+        params.set('page', pagination.current.toString());
+        params.set('pageSize', pagination.pageSize.toString());
+
+        if (sorter.field) {
+            params.set('sortField', sorter.field as string);
+            params.set('sortOrder', sorter.order === 'ascend' ? 'asc' : 'desc');
+        }
+
+        router.push(`/units?${params.toString()}`);
+    };
+
+    const onSearch = (value: string) => {
+        const params = new URLSearchParams();
+        if (value) params.set('q', value);
+        params.set('page', '1');
+        router.push(`/units?${params.toString()}`);
+    };
 
     const handleBatchDelete = async () => {
         setLoading(true);
@@ -131,7 +169,7 @@ export default function UnitList({ units }: { units: any[] }) {
             title: '单位名称',
             dataIndex: 'name',
             key: 'name',
-            sorter: (a: any, b: any) => a.name.localeCompare(b.name, 'zh-CN'),
+            sorter: true,
             render: (text: string, record: any) => (
                 <a onClick={() => router.push(`/units/${record.id}`)} className="font-medium text-blue-600 hover:text-blue-800">
                     {text}
@@ -142,13 +180,13 @@ export default function UnitList({ units }: { units: any[] }) {
             title: '编号',
             dataIndex: 'code',
             key: 'code',
-            sorter: (a: any, b: any) => (a.code || '').localeCompare(b.code || ''),
+            sorter: true,
         },
         {
             title: '账户余额 (元)',
             dataIndex: 'accountBalance',
             key: 'accountBalance',
-            sorter: (a: any, b: any) => Number(a.accountBalance) - Number(b.accountBalance),
+            sorter: true,
             render: (val: any) => {
                 const num = Number(val);
                 return <span style={{ color: num < 0 ? '#cf1322' : '#3f8600', fontWeight: num < 0 ? 'bold' : 'normal' }}>{num.toFixed(2)}</span>
@@ -218,10 +256,14 @@ export default function UnitList({ units }: { units: any[] }) {
         }
     };
 
+    useEffect(() => {
+        setSearchText(initialQuery);
+    }, [initialQuery]);
+
     // Render logic for Mobile Card View
     const renderMobileCards = () => (
         <div className="grid grid-cols-1 gap-4">
-            {filteredUnits.map(unit => (
+            {initialUnits.map(unit => (
                 <Card
                     key={unit.id}
                     title={
@@ -277,12 +319,14 @@ export default function UnitList({ units }: { units: any[] }) {
                             <Button type="primary" size="small" icon={<CalculatorOutlined />} onClick={handleBatchCalculate}>批量预测计算</Button>
                         </div>
                     )}
-                    <Input
+                    <Input.Search
                         placeholder="搜索单位名称"
-                        prefix={<SearchOutlined />}
-                        style={{ width: isMobile ? '100%' : 200 }}
+                        allowClear
+                        enterButton={<SearchOutlined />}
+                        style={{ width: isMobile ? '100%' : 250 }}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
+                        onSearch={onSearch}
                     />
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateModalOpen(true)} className={isMobile ? 'w-full' : ''}>
                         添加单位
@@ -293,11 +337,18 @@ export default function UnitList({ units }: { units: any[] }) {
             {isMobile ? renderMobileCards() : (
                 <Table
                     rowSelection={rowSelection}
-                    dataSource={filteredUnits}
+                    dataSource={initialUnits}
                     columns={columns}
                     rowKey="id"
                     rowClassName={(record) => Number(record.accountBalance) < 0 ? 'bg-red-50' : ''}
-                    pagination={{ pageSize: 10, size: 'small' }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
+                        size: 'small',
+                        showSizeChanger: true
+                    }}
+                    onChange={handleTableChange}
                     scroll={{ x: true }}
                 />
             )}
