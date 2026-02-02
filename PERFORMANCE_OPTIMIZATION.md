@@ -112,6 +112,20 @@ model Unit {
 1.  `deploy-on-vps.sh`: 增加了自动迁移步骤 (`prisma migrate deploy`)。
 2.  `Dockerfile`: 更新了启动命令以支持自动迁移。
 
+### 3.4 前端性能与体验优化 (Frontend & UX) - 已实施
+
+**目标**: 解决大数据量下的页面卡顿和数据实时性问题。
+
+*   **服务端分页 (Server-Side Pagination)**:
+    *   **位置**: `app/app/units/UnitList.tsx` & `actions/unit.ts`
+    *   **策略**: 将原来的客户端全量过滤改为服务端分页查询 (`skip/take`)。
+    *   **收益**: 页面加载时间从线性增长优化为常数时间 (O(1))。
+
+*   **强制动态渲染 (Force Dynamic Rendering)**:
+    *   **位置**: Page Components
+    *   **策略**: 使用 `export const dynamic = 'force-dynamic'` 禁用 SSG。
+    *   **收益**: 确保用户总是看到最新的数据库状态，避免了静态缓存导致的“数据缺失”假象。
+
 ---
 
 ## 4. 结论 (Conclusion)
