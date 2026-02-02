@@ -4,6 +4,8 @@ import { UserOutlined, WarningOutlined, BankOutlined, WalletOutlined } from '@an
 import Link from 'next/link';
 import { OneClickCalculateButton } from './DashboardActions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
     const res = await getDashboardStats();
     const stats = res.data || { totalBalance: 0, arrearsCount: 0, arrearsAmount: 0, unitCount: 0, warningUnits: [] };

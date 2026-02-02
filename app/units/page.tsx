@@ -1,6 +1,8 @@
 import { getUnits } from '../../actions/unit';
 import UnitList from './UnitList';
 
+export const dynamic = 'force-dynamic';
+
 export default async function UnitsPage() {
     const res = await getUnits();
     if (!res.success) {
