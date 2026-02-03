@@ -166,10 +166,18 @@ export default function UnitList({
 
     const columns = [
         {
+            title: '编号',
+            dataIndex: 'code',
+            key: 'code',
+            sorter: true,
+            sortOrder: initialSortField === 'code' ? (initialSortOrder === 'asc' ? 'ascend' : 'descend') : null,
+        },
+        {
             title: '单位名称',
             dataIndex: 'name',
             key: 'name',
             sorter: true,
+            sortOrder: initialSortField === 'name' ? (initialSortOrder === 'asc' ? 'ascend' : 'descend') : null,
             render: (text: string, record: any) => (
                 <a onClick={() => router.push(`/units/${record.id}`)} className="font-medium text-blue-600 hover:text-blue-800">
                     {text}
@@ -177,16 +185,11 @@ export default function UnitList({
             ),
         },
         {
-            title: '编号',
-            dataIndex: 'code',
-            key: 'code',
-            sorter: true,
-        },
-        {
             title: '账户余额 (元)',
             dataIndex: 'accountBalance',
             key: 'accountBalance',
             sorter: true,
+            sortOrder: initialSortField === 'accountBalance' ? (initialSortOrder === 'asc' ? 'ascend' : 'descend') : null,
             render: (val: any) => {
                 const num = Number(val);
                 return <span style={{ color: num < 0 ? '#cf1322' : '#3f8600', fontWeight: num < 0 ? 'bold' : 'normal' }}>{num.toFixed(2)}</span>

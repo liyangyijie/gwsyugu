@@ -37,6 +37,8 @@ export default async function UnitsPage({
                 currentPage={page}
                 pageSize={pageSize}
                 initialQuery={query}
+                initialSortField={sortField}
+                initialSortOrder={sortOrder}
             />
         </>
     );

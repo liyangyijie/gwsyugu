@@ -43,7 +43,7 @@ export default function SnapshotView() {
             title: '编号',
             dataIndex: 'code',
             key: 'code',
-            sorter: (a: any, b: any) => (a.code || '').localeCompare(b.code || ''),
+            sorter: (a: any, b: any) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }),
             width: 100
         },
         {
