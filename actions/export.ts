@@ -41,7 +41,7 @@ export async function exportSettlementReport(startDate: Date, endDate: Date) {
             // 1. If DEDUCTION -> Use relatedReading.readingDate as effective date
             // 2. Others -> Use transaction.date
             // 3. Filter all transactions where effectiveDate <= safeEndDate
-            // 4. Sum initialBalance + all filtered amounts
+            // 4. Sum initialBalance + all filtered amounts (Exclude INITIAL tx to avoid double counting)
             const effectiveTxs = unitTx.map(t => {
                 let effectiveDate = t.date;
                 // Fix: DEDUCTION should be effective on the Reading Date, not Entry Date
@@ -51,7 +51,7 @@ export async function exportSettlementReport(startDate: Date, endDate: Date) {
                 return { ...t, effectiveDate };
             });
 
-            const validTxs = effectiveTxs.filter(t => t.effectiveDate <= safeEndDate);
+            const validTxs = effectiveTxs.filter(t => t.effectiveDate <= safeEndDate && t.type !== 'INITIAL');
 
             const endBalance = validTxs.reduce((sum, t) => sum + Number(t.amount), Number(unit.initialBalance));
 

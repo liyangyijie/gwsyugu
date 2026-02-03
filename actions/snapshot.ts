@@ -36,7 +36,8 @@ export async function getUnitBalancesAtDate(date: Date) {
             });
 
             // Filter transactions that effectively happened on or before the snapshot date
-            const validTxs = effectiveTxs.filter(t => t.effectiveDate <= safeDate);
+            // Exclude INITIAL transaction to avoid double counting with unit.initialBalance
+            const validTxs = effectiveTxs.filter(t => t.effectiveDate <= safeDate && t.type !== 'INITIAL');
 
             // Calculate sum
             const balance = validTxs.reduce((sum, t) => sum + Number(t.amount), Number(unit.initialBalance));
