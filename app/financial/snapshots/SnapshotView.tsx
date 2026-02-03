@@ -65,9 +65,9 @@ export default function SnapshotView() {
         },
         {
             title: '状态',
-            dataIndex: 'balance',
+            dataIndex: 'status',
             key: 'status',
-            render: (val: number) => val < 0 ? <Tag color="red">欠费</Tag> : <Tag color="green">正常</Tag>
+            render: (status: string) => status === '欠费' ? <Tag color="red">欠费</Tag> : <Tag color="green">正常</Tag>
         }
     ];
 
