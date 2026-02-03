@@ -5,12 +5,18 @@ import * as XLSX from 'xlsx'
 import dayjs from 'dayjs'
 
 export async function exportSettlementReport(startDate: Date, endDate: Date) {
+    // Force endDate to end of day to include all transactions of that day
+    const safeEndDate = dayjs(endDate).endOf('day').toDate();
+    // Start date is usually 00:00:00, but ensuring it won't hurt
+    const safeStartDate = dayjs(startDate).startOf('day').toDate();
+
     try {
         // 1. Fetch Data (Optimized: Single query per table)
         const [units, transactions, readings] = await Promise.all([
             prisma.unit.findMany({ orderBy: { id: 'asc' } }),
             prisma.accountTransaction.findMany({
-                orderBy: { date: 'asc' }
+                orderBy: { date: 'asc' },
+                include: { relatedReading: true } // Crucial for Effective Date logic
             }),
             prisma.meterReading.findMany({
                 orderBy: { readingDate: 'asc' }
@@ -30,26 +36,36 @@ export async function exportSettlementReport(startDate: Date, endDate: Date) {
                 .reduce((sum, t) => sum + Number(t.amount), 0);
             const totalRecharge = Number(unit.initialBalance) + rechargeSum;
 
-            // B. End Balance (Snapshot at endDate)
-            // Find last tx <= endDate
-            // Sort tx by date desc to find the last one before cutoff
-            const lastTx = unitTx
-                .filter(t => t.date <= endDate)
-                .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+            // B. End Balance (Replay Logic based on Effective Date)
+            // Logic:
+            // 1. If DEDUCTION -> Use relatedReading.readingDate as effective date
+            // 2. Others -> Use transaction.date
+            // 3. Filter all transactions where effectiveDate <= safeEndDate
+            // 4. Sum initialBalance + all filtered amounts
+            const effectiveTxs = unitTx.map(t => {
+                let effectiveDate = t.date;
+                // Fix: DEDUCTION should be effective on the Reading Date, not Entry Date
+                if (t.type === 'DEDUCTION' && t.relatedReading) {
+                    effectiveDate = t.relatedReading.readingDate;
+                }
+                return { ...t, effectiveDate };
+            });
 
-            const endBalance = lastTx ? Number(lastTx.balanceAfter) : Number(unit.initialBalance);
+            const validTxs = effectiveTxs.filter(t => t.effectiveDate <= safeEndDate);
+
+            const endBalance = validTxs.reduce((sum, t) => sum + Number(t.amount), Number(unit.initialBalance));
 
             // C. Start Reading (>= startDate, find closest FUTURE)
             // User: "初始日数据后找最近的真实抄表数"
             // Filter readings >= startDate, sort ASC (earliest first)
             const startR = unitReadings
-                .filter(r => r.readingDate >= startDate)
+                .filter(r => r.readingDate >= safeStartDate)
                 .sort((a, b) => a.readingDate.getTime() - b.readingDate.getTime())[0];
 
             let startNote = '';
             if (!startR) {
                 startNote = '无起始日后抄表数据';
-            } else if (startR.readingDate > startDate) {
+            } else if (startR.readingDate > safeStartDate) {
                 // If it's not exactly on the start date
                 startNote = `起始数取自${dayjs(startR.readingDate).format('YYYY-MM-DD')}`;
             }
@@ -58,13 +74,13 @@ export async function exportSettlementReport(startDate: Date, endDate: Date) {
             // User: "截止日数据则前找"
             // Filter readings <= endDate, sort DESC (latest first)
             const endR = unitReadings
-                .filter(r => r.readingDate <= endDate)
+                .filter(r => r.readingDate <= safeEndDate)
                 .sort((a, b) => b.readingDate.getTime() - a.readingDate.getTime())[0];
 
             let endNote = '';
             if (!endR) {
                 endNote = '无截止日前抄表数据';
-            } else if (endR.readingDate < endDate) {
+            } else if (endR.readingDate < safeEndDate) {
                 // If it's not exactly on the end date
                 endNote = `截止数取自${dayjs(endR.readingDate).format('YYYY-MM-DD')}`;
             }
@@ -103,7 +119,7 @@ export async function exportSettlementReport(startDate: Date, endDate: Date) {
             '序号': index + 1,
             '单位名称': row.name,
             '账户总充费额': row.totalRecharge, // 包含初始 + 充值 (不含转账)
-            '截止日账户余额': row.endBalance,
+            '截止日账户余额': row.endBalance,  // 基于抄表日重算
             '起始日抄表数': row.startRead,
             '截止日抄表数': row.endRead,
             '结算数': row.usage,
