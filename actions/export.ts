@@ -23,10 +23,25 @@ export async function exportSettlementReport(startDate: Date, endDate: Date) {
             })
         ]);
 
+        // Optimization: Pre-group data to reduce complexity from O(N*M) to O(N+M)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const txMap = new Map<number, any[]>();
+        for (const t of transactions) {
+            if (!txMap.has(t.unitId)) txMap.set(t.unitId, []);
+            txMap.get(t.unitId)!.push(t);
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const readingMap = new Map<number, any[]>();
+        for (const r of readings) {
+            if (!readingMap.has(r.unitId)) readingMap.set(r.unitId, []);
+            readingMap.get(r.unitId)!.push(r);
+        }
+
         // 2. Process Data in Memory
         const rows = units.map(unit => {
-            const unitTx = transactions.filter(t => t.unitId === unit.id);
-            const unitReadings = readings.filter(r => r.unitId === unit.id);
+            const unitTx = txMap.get(unit.id) || [];
+            const unitReadings = readingMap.get(unit.id) || [];
 
             // A. Total Recharge (Initial + RECHARGE type)
             // EXCLUDE ADJUSTMENT to avoid double counting shared accounts

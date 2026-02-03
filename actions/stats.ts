@@ -4,11 +4,21 @@ import prisma from '@/lib/prisma'
 export async function getDashboardStats() {
     try {
         const units = await prisma.unit.findMany({
-            include: {
-                prediction: true,
+            select: {
+                id: true,
+                name: true,
+                parentUnitId: true,
+                accountBalance: true,
+                prediction: {
+                    select: { data: true }
+                },
                 parentUnit: {
-                    include: {
-                        prediction: true
+                    select: {
+                        id: true,
+                        accountBalance: true,
+                        prediction: {
+                            select: { data: true }
+                        }
                     }
                 }
             }

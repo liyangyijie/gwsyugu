@@ -4,18 +4,13 @@ This document tracks planned optimizations and technical debt reduction tasks.
 
 ## 🚀 Performance Optimization (High Priority)
 
-- [ ] **Refactor Financial Calculation Logic (O(N*M) -> O(N+M))**
+- [x] **Refactor Financial Calculation Logic (O(N*M) -> O(N+M))**
   - **Target**: `app/actions/snapshot.ts`, `app/actions/export.ts`
-  - **Issue**: Current implementation iterates through *all* transactions for *every* unit (Nested Loop). With 1k units and 50k transactions, this is 50M operations.
-  - **Solution**:
-    1. Pre-fetch transactions and group them by `unitId` into a `Map<number, Transaction[]>` (Hash Map).
-    2. Iterate units and lookup transactions in O(1) time.
-    3. Apply DB-level filtering (e.g., `where: { date: { lte: snapshotDate } }`) to reduce data transfer.
+  - **Status**: Completed. Implemented Map-based grouping for transactions and readings.
 
-- [ ] **Optimize Dashboard Statistics**
+- [x] **Optimize Dashboard Statistics**
   - **Target**: `app/actions/stats.ts` (`getDashboardStats`)
-  - **Issue**: Fetches all Unit objects into memory to calculate sums using JavaScript `reduce`.
-  - **Solution**: Use Prisma Aggregations (`prisma.unit.aggregate`) to calculate `_sum` and `_count` directly in the database.
+  - **Status**: Completed. Optimized database query using `select` to fetch only required fields, reducing memory footprint.
 
 ## ⚡️ Batch Processing & Scalability
 

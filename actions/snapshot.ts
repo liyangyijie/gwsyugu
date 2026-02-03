@@ -19,11 +19,21 @@ export async function getUnitBalancesAtDate(date: Date) {
             })
         ]);
 
+        // Optimization: Pre-group transactions by unitId to avoid O(N*M) complexity
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const txMap = new Map<number, any[]>();
+        for (const tx of transactions) {
+            if (!txMap.has(tx.unitId)) {
+                txMap.set(tx.unitId, []);
+            }
+            txMap.get(tx.unitId)!.push(tx);
+        }
+
         const balanceMap = new Map<number, number>();
 
         // 1. Calculate balances for all units
         units.forEach(unit => {
-            const unitTx = transactions.filter(t => t.unitId === unit.id);
+            const unitTx = txMap.get(unit.id) || [];
 
             // Replay Logic based on Effective Date
             const effectiveTxs = unitTx.map(t => {
