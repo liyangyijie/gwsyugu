@@ -5,6 +5,8 @@ import { DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { deleteTransaction } from '@/actions/transactions';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import SettlementExportModal from '../components/financial/SettlementExportModal';
 
 const TYPE_MAP: any = {
     'INITIAL': '初始余额',
@@ -16,6 +18,7 @@ const TYPE_MAP: any = {
 export default function FinancialList({ transactions }: { transactions: any[] }) {
     const router = useRouter();
     const [messageApi, contextHolder] = message.useMessage();
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     const handleDelete = async (id: number) => {
         const res = await deleteTransaction(id);
@@ -61,9 +64,10 @@ export default function FinancialList({ transactions }: { transactions: any[] })
             {contextHolder}
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">财务流水明细</h2>
-                <Button icon={<DownloadOutlined />}>导出Excel</Button>
+                <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalOpen(true)}>导出结算报表</Button>
             </div>
             <Table dataSource={transactions} columns={columns} rowKey="id" />
+            <SettlementExportModal open={isExportModalOpen} onCancel={() => setIsExportModalOpen(false)} />
         </div>
     );
 }

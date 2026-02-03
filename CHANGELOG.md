@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [17:30] [Feature] Financial: Added "Settlement Report Export" feature. Supports generating Excel reports with custom date ranges, auto-calculating usage based on closest readings, and snapshotting historical balances
 - [16:50] [UI] PredictionTab.tsx: Optimized prediction chart label to dynamically show "预测合计用热" for shared accounts and "预测用热" for single units
 - [16:45] [Feat] units: Implemented server-side pagination, sorting, and searching for the Unit List to improve performance with large datasets
 - [16:30] [Fix] pages: Forced dynamic rendering for `/units`, `/dashboard`, and `/financial` to prevent stale data issue after deployment (SSG -> SSR)
