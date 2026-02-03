@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Table, Tag, Button, Popconfirm, message } from 'antd';
-import { DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DownloadOutlined, DeleteOutlined, HistoryOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { deleteTransaction } from '@/actions/transactions';
 import { useRouter } from 'next/navigation';
@@ -64,7 +64,10 @@ export default function FinancialList({ transactions }: { transactions: any[] })
             {contextHolder}
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">财务流水明细</h2>
-                <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalOpen(true)}>导出结算报表</Button>
+                <div className="flex gap-2">
+                    <Button icon={<HistoryOutlined />} onClick={() => router.push('/financial/snapshots')}>历史余额快照</Button>
+                    <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalOpen(true)}>导出结算报表</Button>
+                </div>
             </div>
             <Table dataSource={transactions} columns={columns} rowKey="id" />
             <SettlementExportModal open={isExportModalOpen} onCancel={() => setIsExportModalOpen(false)} />

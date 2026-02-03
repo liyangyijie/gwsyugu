@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [20:15] [Feat] financial: Added "Monthly Balance Snapshot" view (`/financial/snapshots`) to query historical balances based on effective dates (reading date), ensuring accurate snapshots regardless of entry time
+- [20:00] [Feat] readings: Added "Batch Reading Entry" feature (/readings/batch) supporting bulk data entry with auto-fetched weather data and client-side validation
 - [18:00] [Fix] Export: Refined settlement report logic. Implemented "Replay Balance" algorithm based on effective dates (Deduction uses Reading Date) to solve balance mismatches caused by delayed data entry. Also forced end-of-day boundary for accurate snapshots
 - [17:30] [Feature] Financial: Added "Settlement Report Export" feature. Supports generating Excel reports with custom date ranges, auto-calculating usage based on closest readings, and snapshotting historical balances
 - [16:50] [UI] PredictionTab.tsx: Optimized prediction chart label to dynamically show "预测合计用热" for shared accounts and "预测用热" for single units

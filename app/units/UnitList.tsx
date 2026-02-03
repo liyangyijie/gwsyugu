@@ -328,6 +328,9 @@ export default function UnitList({
                         onChange={e => setSearchText(e.target.value)}
                         onSearch={onSearch}
                     />
+                    <Button onClick={() => router.push('/readings/batch')}>
+                        批量抄表
+                    </Button>
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateModalOpen(true)} className={isMobile ? 'w-full' : ''}>
                         添加单位
                     </Button>

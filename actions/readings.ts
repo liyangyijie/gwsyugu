@@ -287,3 +287,74 @@ export async function getUnitReadings(unitId: number) {
     return { success: false, error: 'Failed to fetch readings' }
   }
 }
+
+export async function getUnitsForBatchEntry() {
+  try {
+    const units = await prisma.unit.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        readings: {
+          orderBy: { readingDate: 'desc' },
+          take: 1,
+          select: { readingValue: true, readingDate: true }
+        }
+      },
+      orderBy: { code: 'asc' } // Usually walk by code
+    });
+
+    return {
+      success: true,
+      data: units.map((u: any) => ({
+        id: u.id,
+        name: u.name,
+        code: u.code,
+        lastReading: u.readings[0] ? Number(u.readings[0].readingValue) : 0,
+        lastReadingDate: u.readings[0]?.readingDate
+      }))
+    };
+  } catch {
+    return { success: false, error: 'Failed to fetch units for batch entry' };
+  }
+}
+
+export async function submitBatchReadings(readings: { unitId: number, readingValue: number, readingDate: Date }[]) {
+  if (readings.length === 0) return { success: true, successCount: 0 };
+
+  // 1. Pre-fetch temperature to avoid N api calls
+  // Assume all readings are for the same date (or majority).
+  // If mixed dates, we might need a map.
+  // The UI usually enforces one date.
+  const date = readings[0].readingDate;
+  const temp = await fetchTemperatureForDate(date);
+
+  let successCount = 0;
+  const errors: string[] = [];
+
+  // 2. Process sequentially to ensure safety (esp. for shared accounts balance updates)
+  for (const r of readings) {
+    // If date is different (edge case), fetch temp again?
+    // saveMeterReading will fetch if we pass null/undefined.
+    // If date matches, use pre-fetched.
+    const t = r.readingDate.getTime() === date.getTime() ? temp : undefined;
+
+    const res = await saveMeterReading({
+        ...r,
+        dailyAvgTemp: t ?? undefined
+    });
+
+    if (res.success) successCount++;
+    else errors.push(`Unit ID ${r.unitId}: ${res.error}`);
+  }
+
+  revalidatePath('/units');
+  revalidatePath('/dashboard');
+  revalidatePath('/financial');
+
+  return {
+      success: errors.length === 0,
+      successCount,
+      errors
+  };
+}
