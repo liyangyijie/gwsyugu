@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Upload, Button, message, Card, Table, Tabs, Alert, Input, Form, InputNumber, Modal } from 'antd'
 import { UploadOutlined, DownloadOutlined, FileExcelOutlined, EnvironmentOutlined, ExperimentOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons'
 import * as XLSX from 'xlsx'
+import dayjs from 'dayjs'
 import { importUnits, importReadings, getAllUnitsForExport, getFinancialReportForExport, getReadingsForExport } from '@/actions/data-management'
 import { getCitySetting, saveCitySetting, testWeather } from '@/actions/settings'
 
@@ -119,16 +120,58 @@ export default function DataManagementPage() {
     setImportResult(null)
     try {
       const data = await parseExcel(file)
-      // Map Chinese headers
-      const mappedData = data.map((row: any) => ({
-        unitName: row['单位名称'] || row['unitName'],
-        // Prefer file date if available, otherwise row date
-        readingDate: row['__fileDate'] || row['抄表日期'] || row['readingDate'],
-        // Support specific format "今日表数   （吉焦）" and others
-        readingValue: row['今日表数   （吉焦）'] || row['今日表数（吉焦）'] || row['今日表数'] || row['热计量表总数'] || row['读数'] || row['readingValue'],
-        dailyAvgTemp: row['日均气温'] || row['dailyAvgTemp'],
-        remarks: row['备注'] || row['remarks'],
-      })).filter((r: any) => r.unitName && r.readingDate)
+      let mappedData: any[] = []
+
+      // Determine Format: Long (List) vs Wide (Matrix)
+      // If first row has '抄表日期' or '__fileDate', treat as Long format.
+      // Otherwise, check if keys look like dates.
+      const isLongFormat = data.length > 0 && ('抄表日期' in data[0] || '__fileDate' in data[0]);
+
+      if (isLongFormat) {
+          mappedData = data.map((row: any) => ({
+            unitName: row['单位名称'] || row['unitName'],
+            readingDate: row['__fileDate'] || row['抄表日期'] || row['readingDate'],
+            readingValue: row['今日表数   （吉焦）'] || row['今日表数（吉焦）'] || row['今日表数'] || row['热计量表总数'] || row['读数'] || row['readingValue'],
+            dailyAvgTemp: row['日均气温'] || row['dailyAvgTemp'],
+            remarks: row['备注'] || row['remarks'],
+          })).filter((r: any) => r.unitName && r.readingDate)
+      } else {
+          // Wide Format (Pivot) - Unpivot Logic
+          data.forEach((row: any) => {
+              const unitName = row['单位名称'];
+              if (!unitName) return;
+
+              Object.keys(row).forEach(key => {
+                  if (key === '单位名称' || key === '备注') return;
+
+                  // Simple date check (contains 20xx and - or / or 年)
+                  // Matches 2025-11-25, 2025/11/25, 2025年11月25日
+                  if (key.match(/\d{4}[-/年]\d{1,2}[-/月]\d{1,2}/)) {
+                      const val = row[key];
+                      if (val !== undefined && val !== null && val !== '') {
+                          // Normalize date string if needed, but new Date() handles standard formats
+                          let dateStr = key;
+                          if (key.includes('年')) {
+                              dateStr = key.replace(/年|月/g, '-').replace(/日/g, '');
+                          }
+
+                          mappedData.push({
+                              unitName,
+                              readingDate: dateStr,
+                              readingValue: val,
+                              remarks: row['备注'] || '' // Shared remark?
+                          });
+                      }
+                  }
+              });
+          });
+      }
+
+      if (mappedData.length === 0) {
+          messageApi.warning('未识别到有效数据，请检查Excel格式（需包含“单位名称”及日期列）');
+          setLoading(false);
+          return false;
+      }
 
       const result = await importReadings(mappedData)
       setImportResult({ type: '抄表记录导入', ...result })
@@ -370,14 +413,34 @@ export default function DataManagementPage() {
     setLoading(true)
     try {
       const readings = await getReadingsForExport()
-      // Map to Chinese headers compatible with Import
-      const data = readings.map((r: any) => ({
-        '单位名称': r.unit.name,
-        '抄表日期': new Date(r.readingDate).toLocaleDateString(),
-        '今日表数': Number(r.readingValue),
-        '日均气温': r.dailyAvgTemp,
-        '备注': r.remarks
-      }))
+
+      // Pivot Data: Unit (Rows) x Date (Cols)
+      const dateSet = new Set<string>();
+      const unitMap = new Map<string, Record<string, number>>();
+
+      readings.forEach((r: any) => {
+          const dateStr = dayjs(r.readingDate).format('YYYY-MM-DD');
+          dateSet.add(dateStr);
+
+          if (!unitMap.has(r.unit.name)) {
+              unitMap.set(r.unit.name, {});
+          }
+          unitMap.get(r.unit.name)![dateStr] = Number(r.readingValue);
+      });
+
+      const sortedDates = Array.from(dateSet).sort().reverse(); // Latest first
+      const sortedUnitNames = Array.from(unitMap.keys()).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+
+      const data = sortedUnitNames.map(name => {
+          const row: any = { '单位名称': name };
+          const unitReadings = unitMap.get(name)!;
+          sortedDates.forEach(date => {
+              if (unitReadings[date] !== undefined) {
+                  row[date] = unitReadings[date];
+              }
+          });
+          return row;
+      });
 
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
