@@ -164,7 +164,7 @@ export default function UnitList({
         }
     };
 
-    const columns = [
+    const columns: any = [
         {
             title: '编号',
             dataIndex: 'code',

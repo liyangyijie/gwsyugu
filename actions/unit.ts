@@ -100,13 +100,34 @@ export async function getUnits(params: {
   }
 
   const orderBy: any = {};
-  if (sortField && sortOrder) {
+  // If sorting by code, we handle it in memory for natural sort
+  if (sortField && sortOrder && sortField !== 'code') {
     orderBy[sortField] = sortOrder;
-  } else {
+  } else if (!sortField) {
     orderBy.createdAt = 'desc';
   }
 
   try {
+    // Special handling for 'code' sorting (Natural Sort)
+    if (sortField === 'code') {
+        const [allUnits, total] = await prisma.$transaction([
+            prisma.unit.findMany({ where }), // Fetch all matching query
+            prisma.unit.count({ where })
+        ]);
+
+        // Natural Sort
+        allUnits.sort((a, b) => {
+            const codeA = a.code || '';
+            const codeB = b.code || '';
+            const cmp = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+            return sortOrder === 'asc' ? cmp : -cmp;
+        });
+
+        // Slice for Pagination
+        const pagedUnits = allUnits.slice(skip, skip + pageSize);
+        return { success: true, data: pagedUnits.map(serializeUnit), total, page, pageSize };
+    }
+
     const [units, total] = await prisma.$transaction([
       prisma.unit.findMany({
         where,
