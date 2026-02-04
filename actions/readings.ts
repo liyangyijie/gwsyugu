@@ -97,6 +97,7 @@ export async function saveMeterReading(data: {
           data: {
             unitId: billingUnitId,
             type: 'DEDUCTION',
+            date: readingDate, // Explicitly set date to readingDate
             amount: -costAmount,
             balanceAfter: updatedUnit.accountBalance,
             summary: `${readingDate.toISOString().slice(0, 10)} 抄表扣费`,
@@ -257,6 +258,7 @@ export async function updateReading(readingId: number, data: { readingValue: num
                     data: {
                         unitId: billingUnitId,
                         type: 'DEDUCTION',
+                        date: reading.readingDate, // Explicitly set date to readingDate
                         amount: -costAmount,
                         balanceAfter: updatedUnit.accountBalance,
                         summary: `${reading.readingDate.toISOString().slice(0, 10)} 抄表扣费 (修改)`,
