@@ -73,6 +73,9 @@ model AccountTransaction {
 
   relatedReadingId Int?
   relatedReading   MeterReading? @relation(fields: [relatedReadingId], references: [id])
+
+  @@index([unitId])
+  @@index([relatedReadingId])
 }
 
 model SystemSetting {

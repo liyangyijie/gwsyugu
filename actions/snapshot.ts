@@ -8,53 +8,80 @@ export async function getUnitBalancesAtDate(date: Date) {
     const safeDate = dayjs(date).endOf('day').toDate();
 
     try {
-        const [units, transactions] = await Promise.all([
-            prisma.unit.findMany({
-                orderBy: { code: 'asc' },
-                select: { id: true, name: true, code: true, initialBalance: true, parentUnitId: true }
-            }),
-            prisma.accountTransaction.findMany({
-                orderBy: { date: 'asc' },
-                include: { relatedReading: true }
-            })
-        ]);
-
-        // Optimization: Pre-group transactions by unitId to avoid O(N*M) complexity
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const txMap = new Map<number, any[]>();
-        for (const tx of transactions) {
-            if (!txMap.has(tx.unitId)) {
-                txMap.set(tx.unitId, []);
-            }
-            txMap.get(tx.unitId)!.push(tx);
-        }
-
-        const balanceMap = new Map<number, number>();
-
-        // 1. Calculate balances for all units
-        units.forEach(unit => {
-            const unitTx = txMap.get(unit.id) || [];
-
-            // Replay Logic based on Effective Date
-            const effectiveTxs = unitTx.map(t => {
-                let effectiveDate = t.date;
-                // Fix: DEDUCTION should be effective on the Reading Date, not Entry Date
-                if (t.type === 'DEDUCTION' && t.relatedReading) {
-                    effectiveDate = t.relatedReading.readingDate;
-                }
-                return { ...t, effectiveDate };
-            });
-
-            // Filter transactions that effectively happened on or before the snapshot date
-            // Exclude INITIAL transaction to avoid double counting with unit.initialBalance
-            const validTxs = effectiveTxs.filter(t => t.effectiveDate <= safeDate && t.type !== 'INITIAL');
-
-            // Calculate sum
-            const balance = validTxs.reduce((sum, t) => sum + Number(t.amount), Number(unit.initialBalance));
-            balanceMap.set(unit.id, balance);
+        // Fetch all units
+        const units = await prisma.unit.findMany({
+            orderBy: { code: 'asc' },
+            select: { id: true, name: true, code: true, initialBalance: true, parentUnitId: true }
         });
 
-        // 2. Generate result with correct status (checking parent for shared accounts)
+        // 1. Fetch Aggregated Transactions directly from DB
+        // We need to sum up all transactions that happened BEFORE or ON the safeDate.
+        // Special Case: DEDUCTION transactions should use their relatedReading.readingDate as effective date.
+        // This makes SQL aggregation tricky because of the JOIN logic.
+        // To optimize without overly complex raw SQL, we can fetch simplified transaction data
+        // filtered by a broader date range and perform light-weight aggregation in memory,
+        // OR rely on the fact that entry date is usually close to reading date.
+        //
+        // However, strictly following the logic: DEDUCTION effective date = Reading Date.
+        // Let's iterate:
+        // Option A: Raw SQL (Best Performance)
+        // Option B: Two Queries (Readings + Other Transactions)
+
+        // Let's go with Option B:
+        // Group 1: Non-Deduction Transactions (RECHARGE, ADJUSTMENT) - Filter by tx.date
+        const nonDeductionSums = await prisma.accountTransaction.groupBy({
+            by: ['unitId'],
+            where: {
+                type: { notIn: ['INITIAL', 'DEDUCTION'] }, // Exclude INITIAL (base) and DEDUCTION (handled separately)
+                date: { lte: safeDate }
+            },
+            _sum: {
+                amount: true
+            }
+        });
+
+        // Group 2: Deduction Transactions - We need to check the Reading Date
+        // Since we can't easily join in groupBy, we have to fetch Deductions.
+        // Optimization: Only fetch Deductions where readingDate <= safeDate.
+        // This requires a join filter. Prisma supports relation filtering.
+        const deductions = await prisma.accountTransaction.findMany({
+            where: {
+                type: 'DEDUCTION',
+                relatedReading: {
+                    readingDate: { lte: safeDate }
+                }
+            },
+            select: {
+                unitId: true,
+                amount: true
+            }
+        });
+
+        // Map sums to unitIds
+        const balanceChanges = new Map<number, number>();
+
+        // Process Non-Deductions
+        for (const item of nonDeductionSums) {
+            const current = balanceChanges.get(item.unitId) || 0;
+            balanceChanges.set(item.unitId, current + Number(item._sum.amount || 0));
+        }
+
+        // Process Deductions
+        for (const tx of deductions) {
+            const current = balanceChanges.get(tx.unitId) || 0;
+            balanceChanges.set(tx.unitId, current + Number(tx.amount));
+        }
+
+        // 2. Generate result
+        const balanceMap = new Map<number, number>();
+
+        // Compute Final Balance
+        units.forEach(unit => {
+            const initial = Number(unit.initialBalance);
+            const change = balanceChanges.get(unit.id) || 0;
+            balanceMap.set(unit.id, initial + change);
+        });
+
         const data = units.map(unit => {
             const balance = balanceMap.get(unit.id) ?? 0;
 

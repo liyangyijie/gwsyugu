@@ -22,9 +22,10 @@ export async function calculateUnitParams(unitId: number) {
     })
 
     if (incompleteReadings.length > 0) {
-        // console.log(`Auto-healing ${incompleteReadings.length} readings for unit ${unitId}`)
-        for (const r of incompleteReadings) {
-            // Pass lat/lon to avoid repeated config lookups
+        // Optimize: Fetch temperatures concurrently
+        // Note: fetchTemperatureForDate might hit API rate limits if concurrency is too high.
+        // But for 20 items, Promise.all is typically fine or we can limit concurrency if needed.
+        await Promise.all(incompleteReadings.map(async (r) => {
             const temp = await fetchTemperatureForDate(r.readingDate, cityInfo.lat, cityInfo.lon)
             if (temp !== null) {
                 await prisma.meterReading.update({
@@ -32,7 +33,7 @@ export async function calculateUnitParams(unitId: number) {
                     data: { dailyAvgTemp: temp }
                 })
             }
-        }
+        }));
     }
 
     const readings = await prisma.meterReading.findMany({
