@@ -295,6 +295,7 @@ export async function getUnitsForBatchEntry() {
         id: true,
         name: true,
         code: true,
+        parentUnitId: true, // Needed for concurrency check
         readings: {
           orderBy: { readingDate: 'desc' },
           take: 1,
@@ -310,6 +311,7 @@ export async function getUnitsForBatchEntry() {
         id: u.id,
         name: u.name,
         code: u.code,
+        parentUnitId: u.parentUnitId,
         lastReading: u.readings[0] ? Number(u.readings[0].readingValue) : 0,
         lastReadingDate: u.readings[0]?.readingDate
       }))
@@ -322,30 +324,85 @@ export async function getUnitsForBatchEntry() {
 export async function submitBatchReadings(readings: { unitId: number, readingValue: number, readingDate: Date }[]) {
   if (readings.length === 0) return { success: true, successCount: 0 };
 
-  // 1. Pre-fetch temperature to avoid N api calls
-  // Assume all readings are for the same date (or majority).
-  // If mixed dates, we might need a map.
-  // The UI usually enforces one date.
+  // 1. Pre-fetch temperature
   const date = readings[0].readingDate;
   const temp = await fetchTemperatureForDate(date);
 
   let successCount = 0;
   const errors: string[] = [];
 
-  // 2. Process sequentially to ensure safety (esp. for shared accounts balance updates)
+  // 2. Identify Units with Parent (must execute sequentially to avoid transaction lock on parent)
+  // We need to know which units have parents.
+  // The 'readings' array only has unitId.
+  // We should fetch this info or assume we need to fetch it.
+  // Ideally, passing this info from frontend would be faster, but let's query safe.
+  const unitIds = readings.map(r => r.unitId);
+  const unitsInfo = await prisma.unit.findMany({
+      where: { id: { in: unitIds } },
+      select: { id: true, parentUnitId: true }
+  });
+
+  const unitMap = new Map(unitsInfo.map(u => [u.id, u]));
+
+  // Split into independent and dependent
+  const independentReadings: typeof readings = [];
+  const dependentReadings: typeof readings = [];
+
   for (const r of readings) {
-    // If date is different (edge case), fetch temp again?
-    // saveMeterReading will fetch if we pass null/undefined.
-    // If date matches, use pre-fetched.
-    const t = r.readingDate.getTime() === date.getTime() ? temp : undefined;
+      const u = unitMap.get(r.unitId);
+      // Independent: No parent, AND is not a parent itself (hard to check "is not parent" without more queries)
+      // Actually, if it IS a parent, it's fine to process concurrently as long as NO OTHER child of the SAME parent is processed.
+      // But if it IS a parent, saving its reading might affect its own balance.
+      // The risk is: Child A updates Parent P, Child B updates Parent P. Lock contention.
+      // Or: Parent P updates Parent P. Child A updates Parent P. Lock contention.
+      //
+      // Safe Strategy:
+      // Group by "Billing Account ID".
+      // - If unit has parent, Billing Account = Parent ID.
+      // - If unit has no parent, Billing Account = Unit ID.
+      //
+      // If multiple readings target the same Billing Account, they must be sequential.
+      // If they target different Billing Accounts, they can be concurrent.
 
-    const res = await saveMeterReading({
-        ...r,
-        dailyAvgTemp: t ?? undefined
-    });
+      if (u?.parentUnitId) {
+          // Has parent, so billing account is parent. High risk of collision if multiple children.
+          dependentReadings.push(r);
+      } else {
+          // No parent. But wait, what if it IS a parent and we are also processing its children?
+          // If we process a Child (updates P) and P (updates P) at same time -> Collision.
+          //
+          // For simplicity in this optimization phase:
+          // 1. Independent Units (No parent, and ideally we assume no children in this batch or low risk).
+          //    Let's just optimize the "No Parent" case which is majority.
+          independentReadings.push(r);
+      }
+  }
 
-    if (res.success) successCount++;
-    else errors.push(`Unit ID ${r.unitId}: ${res.error}`);
+  // 3. Process Independent Units Concurrently (Limit 10)
+  const processReading = async (r: typeof readings[0]) => {
+       const t = r.readingDate.getTime() === date.getTime() ? temp : undefined;
+       const res = await saveMeterReading({ ...r, dailyAvgTemp: t ?? undefined });
+       return { r, res };
+  };
+
+  // Chunk independent readings
+  const CHUNK_SIZE = 10;
+  for (let i = 0; i < independentReadings.length; i += CHUNK_SIZE) {
+      const chunk = independentReadings.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.all(chunk.map(processReading));
+
+      results.forEach(({ r, res }) => {
+          if (res.success) successCount++;
+          else errors.push(`Unit ID ${r.unitId}: ${res.error}`);
+      });
+  }
+
+  // 4. Process Dependent/Complex Units Sequentially
+  for (const r of dependentReadings) {
+      const t = r.readingDate.getTime() === date.getTime() ? temp : undefined;
+      const res = await saveMeterReading({ ...r, dailyAvgTemp: t ?? undefined });
+      if (res.success) successCount++;
+      else errors.push(`Unit ID ${r.unitId}: ${res.error}`);
   }
 
   revalidatePath('/units');
