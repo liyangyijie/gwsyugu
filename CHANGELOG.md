@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [11:15] [Test] data-management.test.ts: Added unit tests for `importUnits` to verify custom initial balance date logic and prevent regressions
+- [11:15] [Feat] data-management.ts: Added support for `initialBalanceDate` in Unit Import, allowing historical initial balances to be set with correct dates instead of defaulting to import time
 - [10:30] [Fix] data-management.ts: Fixed a bug in `importReadings` where transaction date defaulted to system time instead of reading date. Now explicitly sets `date` to ensure historical accuracy
 - [10:00] [Fix] snapshot.ts: Fixed a critical timezone bug where snapshots for "Day X" excluded transactions from that day due to UTC offset. Now using explicit date strings to ensure local time "End of Day" is calculated correctly
 - [16:00] [Test] snapshot.test.ts: Added Vitest unit tests for `getUnitBalancesAtDate` to verify snapshot logic and prevent regressions
