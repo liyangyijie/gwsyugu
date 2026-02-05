@@ -14,12 +14,9 @@ This document tracks planned optimizations and technical debt reduction tasks.
 
 ## ⚡️ Batch Processing & Scalability
 
-- [ ] **Optimize Batch Import/Entry**
+- [x] **Optimize Batch Import/Entry**
   - **Target**: `app/actions/data-management.ts` (`importReadings`), `app/actions/readings.ts` (`submitBatchReadings`)
-  - **Issue**: Processes records sequentially in a single large transaction or loop. Large files may cause timeouts or database locks.
-  - **Solution**:
-    1. **Chunking**: Process records in batches of 50-100 items per transaction.
-    2. **Parallel Weather Fetching**: Extract unique dates first, fetch all weather data in parallel, then process records.
+  - **Status**: Completed. Implemented concurrent processing (chunk size: 10) for independent units and sequential processing for shared accounts to ensure data integrity. Also implemented parallel weather fetching.
 
 ## 🎨 Frontend Experience
 
@@ -33,9 +30,9 @@ This document tracks planned optimizations and technical debt reduction tasks.
 
 ## 🛡️ Code Quality & Maintenance
 
-- [ ] **Strict Typing**
-  - Reduce usage of `any` type in `actions/` files and UI components.
-  - Define strict interfaces for `ImportUnitData`, `Transaction`, etc.
+- [x] **Strict Typing**
+  - **Status**: Completed. Fixed all ESLint errors, removed explicit `any` usage in critical paths, and enabled strict TypeScript build checks.
 
 - [ ] **Unit Tests**
-  - Add tests for critical financial logic (`snapshot.ts`, `export.ts`) to ensure "Replay Balance" algorithm remains accurate during refactoring.
+  - **Target**: `app/actions/snapshot.ts`, `app/actions/export.ts`
+  - **Solution**: Add Jest/Vitest tests for financial calculation logic, especially the new O(N) snapshot aggregation and "Replay Balance" algorithm.
