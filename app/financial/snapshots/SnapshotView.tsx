@@ -20,7 +20,8 @@ export default function SnapshotView() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await getUnitBalancesAtDate(date.toDate());
+            // Pass formatted string "YYYY-MM-DD" to avoid timezone shifts between Client and Server
+            const res = await getUnitBalancesAtDate(date.format('YYYY-MM-DD'));
             if (res.success) {
                 setData(res.data || []);
             } else {

@@ -3,9 +3,11 @@
 import prisma from '@/lib/prisma'
 import dayjs from 'dayjs'
 
-export async function getUnitBalancesAtDate(date: Date) {
+export async function getUnitBalancesAtDate(dateStr: string) {
     // Force end of day to include all transactions effective on that day
-    const safeDate = dayjs(date).endOf('day').toDate();
+    // Using string "YYYY-MM-DD" ensures we target the specific calendar day regardless of timezone.
+    // e.g. "2026-01-15" -> End of Jan 15th (which covers all transactions on that day)
+    const safeDate = dayjs(dateStr).endOf('day').toDate();
 
     try {
         // Fetch all units

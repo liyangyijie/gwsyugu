@@ -20,7 +20,7 @@ describe('getUnitBalancesAtDate', () => {
   })
 
   test('should calculate balances correctly using simple aggregation', async () => {
-    const mockDate = new Date('2026-01-15')
+    const mockDate = '2026-01-15'
 
     // Mock Units
     const mockUnits = [
@@ -54,7 +54,7 @@ describe('getUnitBalancesAtDate', () => {
   })
 
   test('should handle arrears correctly', async () => {
-      const mockDate = new Date('2026-01-15')
+      const mockDate = '2026-01-15'
       const mockUnits = [{ id: 1, name: 'Unit 1', initialBalance: 0, parentUnitId: null }]
       vi.mocked(prisma.unit.findMany).mockResolvedValue(mockUnits as any)
 
