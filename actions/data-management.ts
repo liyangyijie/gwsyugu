@@ -203,9 +203,16 @@ export async function importReadings(readingsData: ImportReadingData[]) {
 
     for (const data of readingsData) {
       try {
-        // ... (validation) ...
-        if (!data.unitName || !data.readingDate || !data.readingValue) {
-          throw new Error('Missing required fields (unitName, readingDate, readingValue)')
+        // 1. Check if reading exists (distinguish 0 from empty)
+        // If it's empty string, null, or undefined => skip (not yet billed)
+        // If it's 0 => keep (valid reading)
+        if (data.readingValue === null || data.readingValue === undefined || String(data.readingValue).trim() === '') {
+            continue
+        }
+
+        // 2. Validate other required fields
+        if (!data.unitName || !data.readingDate) {
+          throw new Error('Missing required fields (unitName, readingDate)')
         }
 
         // Find Unit
