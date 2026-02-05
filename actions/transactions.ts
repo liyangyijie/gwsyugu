@@ -134,14 +134,48 @@ export async function adjustBalance(unitId: number, type: 'ADD' | 'SUBTRACT', am
     }
 }
 
-export async function getAllTransactions() {
+export async function getAllTransactions(params: {
+    page?: number;
+    pageSize?: number;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+} = {}) {
+    const { page = 1, pageSize = 50, type, startDate, endDate } = params;
+    const skip = (page - 1) * pageSize;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {};
+
+    if (type) {
+        where.type = type;
+    }
+
+    if (startDate || endDate) {
+        where.date = {};
+        if (startDate) where.date.gte = new Date(startDate);
+        if (endDate) where.date.lte = new Date(endDate);
+    }
+
     try {
-        const transactions = await prisma.accountTransaction.findMany({
-            include: { unit: { select: { name: true } } },
-            orderBy: { date: 'desc' },
-            take: 200
-        })
-        return { success: true, data: transactions.map(serializeTransaction) }
+        const [transactions, total] = await prisma.$transaction([
+            prisma.accountTransaction.findMany({
+                where,
+                include: { unit: { select: { name: true } } },
+                orderBy: { date: 'desc' },
+                skip,
+                take: pageSize
+            }),
+            prisma.accountTransaction.count({ where })
+        ]);
+
+        return {
+            success: true,
+            data: transactions.map(serializeTransaction),
+            total,
+            page,
+            pageSize
+        }
     } catch {
         return { success: false, error: 'Failed' }
     }
