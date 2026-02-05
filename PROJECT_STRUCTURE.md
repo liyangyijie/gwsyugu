@@ -14,7 +14,6 @@ The main application code resides in the `app/` directory (which is also the Git
   - `transactions.ts`: Financial transaction handling.
   - `readings.ts`: Meter reading management.
   - `stats.ts`: Dashboard statistics aggregation.
-  - `snapshot.ts`: Balance snapshot calculation.
 - **`lib/`**: Shared utilities.
   - `prisma.ts`: Prisma Client instance.
   - `weather.ts`: External Weather API integration.
@@ -30,7 +29,6 @@ The main application code resides in the `app/` directory (which is also the Git
   - **`readings/`**: Meter reading management.
     - `batch/`: Batch entry form (`BatchReadingForm.tsx`).
   - **`financial/`**: Financial transaction history.
-    - `snapshots/`: Monthly balance snapshot view (`SnapshotView.tsx`).
   - **`settings/`**: System settings (`page.tsx`), Import/Export UI.
   - **`login/`**: Login page (Password protection).
   - **`api/`**: API Routes (e.g., for file downloads).
