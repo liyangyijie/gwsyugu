@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [16:00] [Test] snapshot.test.ts: Added Vitest unit tests for `getUnitBalancesAtDate` to verify snapshot logic and prevent regressions
+- [15:45] [UI] Loading States: Implemented Skeleton screens for Dashboard and Snapshot pages to improve perceived performance
 - [15:00] [Fix] snapshot.ts: Fixed snapshot date discrepancy by migrating historical transactions to match readingDate and simplifying aggregation logic to O(N)
 - [20:15] [Feat] financial: Added "Monthly Balance Snapshot" view (`/financial/snapshots`) to query historical balances based on effective dates (reading date), ensuring accurate snapshots regardless of entry time
 - [20:00] [Feat] readings: Added "Batch Reading Entry" feature (/readings/batch) supporting bulk data entry with auto-fetched weather data and client-side validation

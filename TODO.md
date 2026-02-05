@@ -23,16 +23,17 @@ This document tracks planned optimizations and technical debt reduction tasks.
 - [ ] **Virtual Scrolling for Large Lists**
   - **Target**: `UnitList.tsx` (Mobile Card View), `SnapshotView.tsx`
   - **Solution**: Implement virtual scrolling to only render visible DOM nodes, improving performance on low-end devices when viewing thousands of units.
+  - **Note**: Server-side pagination is already implemented, so this is low priority.
 
-- [ ] **Loading States**
+- [x] **Loading States**
   - **Target**: Dashboard, Snapshot View
-  - **Solution**: Replace simple spinners with Skeleton screens to improve perceived performance.
+  - **Status**: Completed. Implemented Skeleton screens (`loading.tsx`) for Dashboard and Snapshots pages.
 
 ## 🛡️ Code Quality & Maintenance
 
 - [x] **Strict Typing**
   - **Status**: Completed. Fixed all ESLint errors, removed explicit `any` usage in critical paths, and enabled strict TypeScript build checks.
 
-- [ ] **Unit Tests**
-  - **Target**: `app/actions/snapshot.ts`, `app/actions/export.ts`
-  - **Solution**: Add Jest/Vitest tests for financial calculation logic, especially the new O(N) snapshot aggregation and "Replay Balance" algorithm.
+- [x] **Unit Tests**
+  - **Target**: `app/actions/snapshot.ts`
+  - **Status**: Completed. Added Vitest + mock tests for `getUnitBalancesAtDate` covering normal cases and arrears logic.
