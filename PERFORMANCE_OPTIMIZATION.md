@@ -143,6 +143,16 @@ model Unit {
     *   **准确性**: 快照与结算报表逻辑完全一致。
     *   **性能**: 快照计算速度提升，减少了数据库 JOIN 操作。
 
+### 第五阶段：长期优化计划 (Future Optimization Plan)
+
+**目标**: 解决仪表盘“预警名单”在大数据量下的性能瓶颈。
+
+*   **问题**: 目前 `getDashboardStats` 需要获取并解析全量 `UnitPrediction` JSON 数据来筛选 `remainingDays < 30` 的单位，时间复杂度为 O(N)。
+*   **建议方案**:
+    1.  **Schema 变更**: 在 `UnitPrediction` 表中增加 `remainingDays` (Int) 字段并建立索引。
+    2.  **逻辑更新**: 在预测计算时同步写入该字段。
+    3.  **查询优化**: 使用数据库索引直接过滤 (`where: { remainingDays: { lt: 30 } }`)，将查询速度从 O(N) 提升至 O(log N)。
+
 ---
 
 ## 4. 结论 (Conclusion)
