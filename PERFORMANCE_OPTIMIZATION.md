@@ -126,6 +126,23 @@ model Unit {
     *   **策略**: 使用 `export const dynamic = 'force-dynamic'` 禁用 SSG。
     *   **收益**: 确保用户总是看到最新的数据库状态，避免了静态缓存导致的“数据缺失”假象。
 
+### 3.5 逻辑修正与算法优化 (Logic Correction & Algorithm Optimization) - 已实施
+
+**目标**: 修复余额快照的时间逻辑一致性问题，并优化计算性能。
+
+*   **问题**:
+    1.  **逻辑不一致**: 历史余额快照使用“录入时间”而非“读数时间”，导致与结算报表不一致。
+    2.  **计算复杂度高**: 快照计算采用复杂的联表查询和双重循环过滤，性能随数据量线性下降。
+
+*   **解决方案**:
+    1.  **数据迁移**: 执行 `scripts/fix-transaction-dates.js`，将所有历史 `DEDUCTION` 交易的日期同步为对应的 `readingDate`。
+    2.  **逻辑简化**: `getUnitBalancesAtDate` (snapshot.ts) 现在直接基于 `transaction.date` 进行聚合 (O(N))，无需再进行复杂的 `relatedReading` 关联查询。
+    3.  **一致性保证**: 新的读数录入 (`saveMeterReading`) 强制将交易日期设置为读数日期。
+
+*   **收益**:
+    *   **准确性**: 快照与结算报表逻辑完全一致。
+    *   **性能**: 快照计算速度提升，减少了数据库 JOIN 操作。
+
 ---
 
 ## 4. 结论 (Conclusion)
