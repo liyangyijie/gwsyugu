@@ -9,7 +9,7 @@ type UnitWithRelations = Unit & {
   readings?: MeterReading[]
   transactions?: AccountTransaction[]
   parentUnit?: Unit | null
-  childUnits?: Unit[]
+  childUnits?: Partial<Unit>[]
 }
 
 const serializeUnit = (unit: UnitWithRelations | null) => {
@@ -167,7 +167,7 @@ export async function getUnitById(id: number) {
   }
 }
 
-export async function updateUnit(id: number, data: Prisma.UnitUpdateInput & { parentUnitId?: number | null }) {
+export async function updateUnit(id: number, data: Prisma.UnitUncheckedUpdateInput & { parentUnitId?: number | null }) {
     const { parentUnitId, ...otherData } = data;
 
     // If parentUnitId is not involved in this update, use simple update

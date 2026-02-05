@@ -9,6 +9,9 @@ import { saveMeterReading } from '@/actions/readings';
 import { calculateBatchParams } from '@/actions/prediction';
 import dayjs from 'dayjs';
 
+import { List } from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
+
 const { useBreakpoint } = Grid;
 
 export default function UnitList({
@@ -263,10 +266,11 @@ export default function UnitList({
         setSearchText(initialQuery);
     }, [initialQuery]);
 
-    // Render logic for Mobile Card View
-    const renderMobileCards = () => (
-        <div className="grid grid-cols-1 gap-4">
-            {initialUnits.map(unit => (
+    // Mobile Card Row Component
+    const MobileCardRow = ({ index, style, units, router, openReadingModal, handleDeleteUnit }: any) => {
+        const unit = units[index];
+        return (
+            <div style={{ ...style, paddingBottom: 8, paddingRight: 4 }}>
                 <Card
                     key={unit.id}
                     title={
@@ -303,7 +307,29 @@ export default function UnitList({
                         <span>{Number(unit.unitPrice).toFixed(2)} 元/GJ</span>
                     </div>
                 </Card>
-            ))}
+            </div>
+        );
+    };
+
+    // Render logic for Mobile Card View
+    const renderMobileCards = () => (
+        <div style={{ height: 'calc(100vh - 200px)' }}>
+             <AutoSizer
+                renderProp={({ height, width }) => (
+                    <List
+                        style={{ height: height ?? 0, width: width ?? 0 }}
+                        rowCount={initialUnits.length}
+                        rowHeight={185}
+                        rowProps={{
+                            units: initialUnits,
+                            router,
+                            openReadingModal,
+                            handleDeleteUnit
+                        }}
+                        rowComponent={MobileCardRow}
+                    />
+                )}
+            />
         </div>
     );
 

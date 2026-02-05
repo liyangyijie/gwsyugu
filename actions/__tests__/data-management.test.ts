@@ -27,7 +27,6 @@ describe('importUnits', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     // Mock transaction to just run the callback with the prisma mock
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         return cb(prisma)
     })
@@ -42,17 +41,14 @@ describe('importUnits', () => {
 
     // Pass 1: Create Unit
     // findUnique -> null (Unit doesn't exist)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.unit.findUnique).mockResolvedValueOnce(null)
 
     // Pass 3: Set Balance
     // findUnique -> Unit exists (found by name)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.unit.findUnique).mockResolvedValueOnce({ id: 1, name: 'Test Unit', accountBalance: 0 } as any)
 
     // Inside Transaction:
     // findFirst (initTx) -> null (No initial transaction yet)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.accountTransaction.findFirst).mockResolvedValueOnce(null)
 
     const result = await importUnits(importData)
@@ -77,17 +73,14 @@ describe('importUnits', () => {
 
     // Pass 1: Create Unit
     // findUnique -> null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.unit.findUnique).mockResolvedValueOnce(null)
 
     // Pass 3: Set Balance
     // findUnique -> Unit exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.unit.findUnique).mockResolvedValueOnce({ id: 2, name: 'Test Unit 2', accountBalance: 0 } as any)
 
     // Inside Transaction:
     // findFirst (initTx) -> null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.accountTransaction.findFirst).mockResolvedValueOnce(null)
 
     const result = await importUnits(importData)
@@ -99,7 +92,6 @@ describe('importUnits', () => {
     // Let's check the call arguments directly.
 
     const callArgs = vi.mocked(prisma.accountTransaction.create).mock.calls[0][0]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createdData = (callArgs as any).data
 
     expect(createdData.amount).toBe(200)

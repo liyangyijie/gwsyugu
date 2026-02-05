@@ -20,10 +20,10 @@ This document tracks planned optimizations and technical debt reduction tasks.
 
 ## 🎨 Frontend Experience
 
-- [ ] **Virtual Scrolling for Large Lists**
+- [x] **Virtual Scrolling for Large Lists**
   - **Target**: `UnitList.tsx` (Mobile Card View), `SnapshotView.tsx`
-  - **Solution**: Implement virtual scrolling to only render visible DOM nodes, improving performance on low-end devices when viewing thousands of units.
-  - **Note**: Server-side pagination is already implemented, so this is low priority.
+  - **Status**: Completed. Implemented `react-window` FixedSizeList for mobile unit cards and snapshot table to improve performance with large datasets.
+  - **Note**: Server-side pagination is maintained for Unit List desktop view, while Snapshot View uses client-side virtual scrolling for full dataset exploration.
 
 - [x] **Loading States**
   - **Target**: Dashboard, Snapshot View
@@ -35,5 +35,5 @@ This document tracks planned optimizations and technical debt reduction tasks.
   - **Status**: Completed. Fixed all ESLint errors, removed explicit `any` usage in critical paths, and enabled strict TypeScript build checks.
 
 - [x] **Unit Tests**
-  - **Target**: `app/actions/snapshot.ts`
-  - **Status**: Completed. Added Vitest + mock tests for `getUnitBalancesAtDate` covering normal cases and arrears logic.
+  - **Target**: `app/actions/snapshot.ts`, `app/actions/data-management.ts`
+  - **Status**: Completed. Added Vitest + mock tests for `getUnitBalancesAtDate` and `importUnits` (verifying initial balance date logic).
