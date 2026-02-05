@@ -3,7 +3,7 @@ set -e
 
 # ================= 配置区域 =================
 IMAGE_NAME="liyangyijie/gwsyugu:latest"
-CONTAINER_NAME="gwsyugu-app"
+CONTAINER_NAME="gwsyugu"
 APP_DIR="/root/gwsyugu-docker"
 PORT=3000
 # ===========================================
