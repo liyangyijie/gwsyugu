@@ -4,10 +4,10 @@ import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { fetchTemperatureForDate } from '@/lib/weather'
 import { updatePaymentGroupStatus } from './transactions'
+import { MeterReading } from '@prisma/client'
 
 // Helper
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const serializeReading = (r: any) => ({
+const serializeReading = (r: MeterReading) => ({
   ...r,
   readingValue: Number(r.readingValue),
   heatUsage: r.heatUsage ? Number(r.heatUsage) : null,
@@ -309,7 +309,7 @@ export async function getUnitsForBatchEntry() {
 
     return {
       success: true,
-      data: units.map((u: any) => ({
+      data: units.map((u) => ({
         id: u.id,
         name: u.name,
         code: u.code,

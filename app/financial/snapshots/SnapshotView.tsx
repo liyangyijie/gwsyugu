@@ -14,8 +14,17 @@ export default function SnapshotView() {
     // User said "usually 15th". Let's default to 15th of THIS month.
     const [date, setDate] = useState<dayjs.Dayjs>(dayjs().date(15));
     const [loading, setLoading] = useState(false);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [data, setData] = useState<any[]>([]);
+
+    interface SnapshotData {
+        id: number;
+        code: string | null;
+        name: string;
+        balance: number;
+        status: string;
+        parentUnitId: number | null;
+    }
+
+    const [data, setData] = useState<SnapshotData[]>([]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -39,25 +48,26 @@ export default function SnapshotView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [date]); // Reload when date changes
 
-    const columns = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const columns: any[] = [
         {
             title: '编号',
             dataIndex: 'code',
             key: 'code',
-            sorter: (a: any, b: any) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }),
+            sorter: (a: SnapshotData, b: SnapshotData) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }),
             width: 100
         },
         {
             title: '单位名称',
             dataIndex: 'name',
             key: 'name',
-            sorter: (a: any, b: any) => a.name.localeCompare(b.name, 'zh-CN')
+            sorter: (a: SnapshotData, b: SnapshotData) => a.name.localeCompare(b.name, 'zh-CN')
         },
         {
             title: '账户余额 (元)',
             dataIndex: 'balance',
             key: 'balance',
-            sorter: (a: any, b: any) => a.balance - b.balance,
+            sorter: (a: SnapshotData, b: SnapshotData) => a.balance - b.balance,
             render: (val: number) => (
                 <span style={{ color: val < 0 ? '#cf1322' : '#3f8600', fontWeight: val < 0 ? 'bold' : 'normal' }}>
                     {val.toFixed(2)}

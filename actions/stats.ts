@@ -96,9 +96,14 @@ export async function getDashboardStats() {
             }
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const warningUnits: any[] = [];
-        const processedUnits = new Set<number>();
+        interface WarningUnit {
+            id: number;
+            name: string;
+            remainingDays: number;
+            estimatedDate: string;
+        }
+
+        const warningUnits: WarningUnit[] = [];
 
         for (const pred of predictions) {
             try {

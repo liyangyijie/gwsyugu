@@ -27,6 +27,7 @@ describe('getUnitBalancesAtDate', () => {
       { id: 1, name: 'Unit 1', code: '001', initialBalance: 100, parentUnitId: null },
       { id: 2, name: 'Unit 2', code: '002', initialBalance: 50, parentUnitId: 1 },
     ]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.unit.findMany).mockResolvedValue(mockUnits as any)
 
     // Mock Transactions Aggregation
@@ -34,6 +35,7 @@ describe('getUnitBalancesAtDate', () => {
       { unitId: 1, _sum: { amount: 150 } },
       { unitId: 2, _sum: { amount: -10 } },
     ]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.accountTransaction.groupBy).mockResolvedValue(mockSums as any)
 
     const result = await getUnitBalancesAtDate(mockDate)
@@ -56,9 +58,11 @@ describe('getUnitBalancesAtDate', () => {
   test('should handle arrears correctly', async () => {
       const mockDate = '2026-01-15'
       const mockUnits = [{ id: 1, name: 'Unit 1', initialBalance: 0, parentUnitId: null }]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(prisma.unit.findMany).mockResolvedValue(mockUnits as any)
 
       const mockSums = [{ unitId: 1, _sum: { amount: -10 } }]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(prisma.accountTransaction.groupBy).mockResolvedValue(mockSums as any)
 
       const result = await getUnitBalancesAtDate(mockDate)

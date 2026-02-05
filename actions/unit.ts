@@ -2,10 +2,17 @@
 
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { Unit, MeterReading, AccountTransaction, Prisma } from '@prisma/client'
 
 // Helper to serialize Decimal to number
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const serializeUnit = (unit: any) => {
+type UnitWithRelations = Unit & {
+  readings?: MeterReading[]
+  transactions?: AccountTransaction[]
+  parentUnit?: Unit | null
+  childUnits?: Unit[]
+}
+
+const serializeUnit = (unit: UnitWithRelations | null) => {
   if (!unit) return null
   return {
     ...unit,
@@ -13,15 +20,13 @@ const serializeUnit = (unit: any) => {
     accountBalance: Number(unit.accountBalance),
     initialBalance: Number(unit.initialBalance),
     // Handle nested arrays if present
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readings: unit.readings?.map((r: any) => ({
+    readings: unit.readings?.map((r) => ({
       ...r,
       readingValue: Number(r.readingValue),
       heatUsage: r.heatUsage ? Number(r.heatUsage) : null,
       costAmount: r.costAmount ? Number(r.costAmount) : null,
     })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    transactions: unit.transactions?.map((t: any) => ({
+    transactions: unit.transactions?.map((t) => ({
       ...t,
       amount: Number(t.amount),
       balanceAfter: Number(t.balanceAfter),
@@ -73,8 +78,7 @@ export async function createUnit(data: {
     return { success: true, data: serializeUnit(result) }
   } catch (error) {
     console.error('Failed to create unit:', error)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((error as any).code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return { success: false, error: '单位名称已存在，请使用其他名称' }
     }
     return { success: false, error: 'Failed to create unit' }
@@ -91,7 +95,7 @@ export async function getUnits(params: {
   const { page = 1, pageSize = 10, query = '', sortField, sortOrder } = params;
   const skip = (page - 1) * pageSize;
 
-  const where: any = {};
+  const where: Prisma.UnitWhereInput = {};
   if (query) {
     where.OR = [
       { name: { contains: query } },
@@ -99,10 +103,11 @@ export async function getUnits(params: {
     ];
   }
 
-  const orderBy: any = {};
+  const orderBy: Prisma.UnitOrderByWithRelationInput = {};
   // If sorting by code, we handle it in memory for natural sort
   if (sortField && sortOrder && sortField !== 'code') {
-    orderBy[sortField] = sortOrder;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (orderBy as any)[sortField] = sortOrder;
   } else if (!sortField) {
     orderBy.createdAt = 'desc';
   }
@@ -162,8 +167,7 @@ export async function getUnitById(id: number) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function updateUnit(id: number, data: any) {
+export async function updateUnit(id: number, data: Prisma.UnitUpdateInput & { parentUnitId?: number | null }) {
     const { parentUnitId, ...otherData } = data;
 
     // If parentUnitId is not involved in this update, use simple update

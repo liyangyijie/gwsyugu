@@ -6,14 +6,20 @@ import dayjs from 'dayjs';
 import { submitBatchReadings } from '@/actions/readings';
 import { useRouter } from 'next/navigation';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function BatchReadingForm({ units }: { units: any[] }) {
+interface UnitData {
+    id: number;
+    code: string | null;
+    name: string;
+    lastReading: number;
+    lastReadingDate: string | Date | null;
+}
+
+export default function BatchReadingForm({ units }: { units: UnitData[] }) {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleFinish = async (values: any) => {
+    const handleFinish = async (values: { readingDate: dayjs.Dayjs; readings: Record<string, number> }) => {
         const { readingDate, readings } = values;
 
         // Convert map to array
@@ -23,8 +29,7 @@ export default function BatchReadingForm({ units }: { units: any[] }) {
                 readingValue: readings[unitId],
                 readingDate: readingDate.toDate()
             }))
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .filter((e: any) => e.readingValue !== undefined && e.readingValue !== null && e.readingValue !== '');
+            .filter((e) => e.readingValue !== undefined && e.readingValue !== null && e.readingValue as unknown as string !== '');
 
         if (entries.length === 0) {
             message.warning('请至少录入一个读数');
@@ -47,15 +52,15 @@ export default function BatchReadingForm({ units }: { units: any[] }) {
         }
     };
 
-    const columns = [
-        { title: '编号', dataIndex: 'code', width: 100, sorter: (a: any, b: any) => (a.code || '').localeCompare(b.code || '') },
-        { title: '单位名称', dataIndex: 'name', width: 200, sorter: (a: any, b: any) => a.name.localeCompare(b.name, 'zh-CN') },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const columns: any[] = [
+        { title: '编号', dataIndex: 'code', width: 100, sorter: (a: UnitData, b: UnitData) => (a.code || '').localeCompare(b.code || '') },
+        { title: '单位名称', dataIndex: 'name', width: 200, sorter: (a: UnitData, b: UnitData) => a.name.localeCompare(b.name, 'zh-CN') },
         {
             title: '上次读数',
             dataIndex: 'lastReading',
             width: 120,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            render: (v: number, r: any) => (
+            render: (v: number, r: UnitData) => (
                 <div>
                     <div className="font-mono">{v.toFixed(2)}</div>
                     <div className="text-xs text-gray-400">{r.lastReadingDate ? dayjs(r.lastReadingDate).format('YYYY-MM-DD') : '无'}</div>
@@ -66,8 +71,7 @@ export default function BatchReadingForm({ units }: { units: any[] }) {
             title: '本次读数',
             key: 'input',
             width: 150,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            render: (_: any, record: any) => (
+            render: (_: unknown, record: UnitData) => (
                 <Form.Item
                     name={['readings', record.id]}
                     noStyle
@@ -87,7 +91,7 @@ export default function BatchReadingForm({ units }: { units: any[] }) {
                         style={{ width: '100%' }}
                         precision={2}
                         min={0}
-                        onPressEnter={(e) => {
+                        onPressEnter={() => {
                             // Focus next input? Antd doesn't support easy nav, but standard Tab works
                         }}
                     />
