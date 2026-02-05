@@ -3,7 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- [11:30] [Perf] UnitList.tsx, SnapshotView.tsx: Implemented Virtual Scrolling using `react-window` for Mobile Unit List (Card View) and Snapshot Balance Table to improve rendering performance for large datasets (thousands of rows)
+- [11:45] [Docs] USER_GUIDE.md: Updated user manual with instructions for "Initial Balance Date", "0 vs Empty" logic in Excel import, and Virtual Scrolling performance notes
+- [11:40] [Fix] data-management.ts: Fixed Excel import logic to allow `0` as a valid reading while skipping empty values (null/undefined/'')
 - [11:15] [Test] data-management.test.ts: Added unit tests for `importUnits` to verify custom initial balance date logic and prevent regressions
 - [11:15] [Feat] data-management.ts: Added support for `initialBalanceDate` in Unit Import, allowing historical initial balances to be set with correct dates instead of defaulting to import time
 - [10:30] [Fix] data-management.ts: Fixed a bug in `importReadings` where transaction date defaulted to system time instead of reading date. Now explicitly sets `date` to ensure historical accuracy
