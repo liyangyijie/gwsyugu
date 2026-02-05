@@ -98,6 +98,18 @@ if [ -d ".next/cache" ]; then
 fi
 
 # ---------------------------------------------------------
+# 5. Systemd Journal 日志清理 (Linux Only)
+# ---------------------------------------------------------
+if command -v journalctl &> /dev/null; then
+    log "📜 清理 Systemd Journal 日志..."
+    # 仅保留最近 7 天的日志
+    journalctl --vacuum-time=7d > /dev/null 2>&1 || true
+    # 限制日志总大小不超过 100MB
+    journalctl --vacuum-size=100M > /dev/null 2>&1 || true
+    log "✅ Systemd Journal 已清理 (保留7天/100MB)"
+fi
+
+# ---------------------------------------------------------
 # 总结
 # ---------------------------------------------------------
 DISK_AFTER=$(get_disk_space)
