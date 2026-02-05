@@ -277,6 +277,7 @@ export async function importReadings(readingsData: ImportReadingData[]) {
                     data: {
                         unitId: billingUnitId,
                         type: 'DEDUCTION',
+                        date: readingDate, // Explicitly set date to readingDate to match business time
                         amount: -costAmount,
                         balanceAfter: updatedUnit.accountBalance,
                         summary: `${readingDate.toISOString().slice(0, 10)} 抄表扣费 (导入)`,

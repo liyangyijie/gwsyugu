@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [10:30] [Fix] data-management.ts: Fixed a bug in `importReadings` where transaction date defaulted to system time instead of reading date. Now explicitly sets `date` to ensure historical accuracy
 - [10:00] [Fix] snapshot.ts: Fixed a critical timezone bug where snapshots for "Day X" excluded transactions from that day due to UTC offset. Now using explicit date strings to ensure local time "End of Day" is calculated correctly
 - [16:00] [Test] snapshot.test.ts: Added Vitest unit tests for `getUnitBalancesAtDate` to verify snapshot logic and prevent regressions
 - [15:45] [UI] Loading States: Implemented Skeleton screens for Dashboard and Snapshot pages to improve perceived performance
