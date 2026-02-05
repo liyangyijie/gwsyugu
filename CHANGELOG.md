@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- [12:35] [Removed] financial: Completely removed "Snapshot Query" feature (UI and Backend) to simplify the system, as requested. Users should use "Export Settlement Report" for historical reconciliation
+- [12:30] [Fix] transactions: Implemented server-side pagination and filtering for Financial List to ensure all records (including historical Initial Balances) are visible
+- [12:30] [Feat] FinancialList.tsx: Added Transaction Type and Date Range filters
 - [11:45] [Docs] USER_GUIDE.md: Updated user manual with instructions for "Initial Balance Date", "0 vs Empty" logic in Excel import, and Virtual Scrolling performance notes
 - [11:40] [Fix] data-management.ts: Fixed Excel import logic to allow `0` as a valid reading while skipping empty values (null/undefined/'')
 - [11:15] [Test] data-management.test.ts: Added unit tests for `importUnits` to verify custom initial balance date logic and prevent regressions

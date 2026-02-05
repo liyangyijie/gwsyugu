@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Table, Tag, Button, Popconfirm, message, Select, DatePicker, Space } from 'antd';
-import { DownloadOutlined, DeleteOutlined, HistoryOutlined } from '@ant-design/icons';
+import { DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { deleteTransaction } from '@/actions/transactions';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -114,7 +114,6 @@ export default function FinancialList({
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">财务流水明细</h2>
                 <div className="flex gap-2">
-                    <Button icon={<HistoryOutlined />} onClick={() => router.push('/financial/snapshots')}>历史余额快照</Button>
                     <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalOpen(true)}>导出结算报表</Button>
                 </div>
             </div>
