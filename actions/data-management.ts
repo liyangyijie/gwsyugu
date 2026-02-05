@@ -11,6 +11,7 @@ interface ImportUnitData {
   area?: number | string
   unitPrice?: number | string
   initialBalance?: number | string
+  initialBalanceDate?: number | string | Date // Support custom date for initial balance
   baseTemp?: number | string
   paymentParent?: string
 }
@@ -23,6 +24,7 @@ export async function importUnits(unitsData: ImportUnitData[]) {
 
     // Pre-processing: Aggregate Balances & Map Parents
     const balanceMap = new Map<string, number>()
+    const balanceDateMap = new Map<string, Date>() // Store custom date for initial balance
     const parentMap = new Map<string, string>()
 
     for (const data of unitsData) {
@@ -35,6 +37,14 @@ export async function importUnits(unitsData: ImportUnitData[]) {
         const amount = data.initialBalance ? Number(data.initialBalance) : 0
         if (amount !== 0) {
             balanceMap.set(targetName, (balanceMap.get(targetName) || 0) + amount)
+        }
+
+        // Capture Initial Balance Date (if provided)
+        if (data.initialBalanceDate) {
+            const parsedDate = new Date(data.initialBalanceDate)
+            if (!isNaN(parsedDate.getTime())) {
+                balanceDateMap.set(targetName, parsedDate)
+            }
         }
 
         // Parent Mapping
@@ -124,6 +134,8 @@ export async function importUnits(unitsData: ImportUnitData[]) {
         try {
             const unit = await prisma.unit.findUnique({ where: { name: unitName } })
             if (unit) {
+                const customDate = balanceDateMap.get(unitName)
+
                 await prisma.$transaction(async (tx) => {
                     // Check if INITIAL transaction exists
                     const initTx = await tx.accountTransaction.findFirst({
@@ -149,7 +161,8 @@ export async function importUnits(unitsData: ImportUnitData[]) {
                                 amount: amount,
                                 balanceAfter: Number(unit.accountBalance) + amount, // approx
                                 summary: '初始余额 (批量归集)',
-                                remarks: '导入自动创建'
+                                remarks: '导入自动创建',
+                                date: customDate ?? undefined // Use custom date if available, otherwise default (now)
                             }
                         })
                     }

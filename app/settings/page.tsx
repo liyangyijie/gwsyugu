@@ -97,6 +97,7 @@ export default function DataManagementPage() {
         unitPrice: row['单价'] || row['unitPrice'],
         baseTemp: row['基准温度'] || row['baseTemp'],
         initialBalance: row['初始余额'] || row['initialBalance'],
+        initialBalanceDate: row['初始余额日期'] || row['initialBalanceDate'], // Support custom date for initial balance
         paymentParent: row['共用账户(父单位名称)'] || row['共用账户'] || row['paymentParent'],
       })).filter((r: any) => r.name) // Filter empty rows
 
@@ -465,6 +466,7 @@ export default function DataManagementPage() {
         '单价': 88,
         '基准温度': 15,
         '初始余额': 5000,
+        '初始余额日期': '2026-01-01', // Optional
         '共用账户(父单位名称)': ''
       },
       {
